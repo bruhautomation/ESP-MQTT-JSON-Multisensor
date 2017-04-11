@@ -45,7 +45,7 @@ This code also supports remote uploading to the ESP8266 using Arduino's OTA libr
 
 
 ### Wiring Diagram
-![alt text](https://github.com/bruhautomation/ESP-MQTT-JSON-Multisensor/blob/master/wiring_diagram.png?raw=true "Wiring Diagram")
+![alt text](https://github.com/bruhautomation/ESP-MQTT-JSON-Multisensor/blob/master/wiring_diagram_v2.png?raw=true "Wiring Diagram")
 
 
 ### 3D Printed Enclosure
