@@ -4,6 +4,8 @@ This project shows a super easy way to get started with your own DIY Multisensor
 
 Bonus, this project requires **no soldering** and **no breadboards** - just header wires and the development board! 
 
+Video Tutorial - https://youtu.be/jpjfVc-9IrQ
+
 The code covered in this repository utilizies Home Assistant's [MQTT JSON Light Component](https://home-assistant.io/components/light.mqtt_json/), [MQTT Sensor Component](https://home-assistant.io/components/sensor.mqtt/), and a [NodeMCU ESP8266](http://geni.us/cpmi) development board. 
 
 ### Supported Features Include
