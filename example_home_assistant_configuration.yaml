@@ -27,7 +27,8 @@ sensor:
   
   - platform: mqtt  
     state_topic: "bruh/sensornode1"  
-    name: "SN1 LDR"  
+    name: "SN1 LDR"
+    ##This sensor is not calibrated to actual LUX. Rather, this a map of the input voltage ranging from 0 - 1023.
     unit_of_measurement: "LUX"  
     value_template: '{{ value_json.ldr }}'  
   
