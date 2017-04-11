@@ -11,8 +11,8 @@ The code covered in this repository utilizies Home Assistant's [MQTT JSON Light 
 - **DHT 22** humdidity sensor
 - **AM312** PIR motion sensor 
 - **photoresistor** or **TEMT600** light sensor
-- **RGB led* with support for color, flash, fade, and transition
-- **Over-the-Air (OTA)** ppload from the ArduinoID
+- **RGB led** with support for color, flash, fade, and transition
+- **Over-the-Air (OTA)** upload from the ArduinoIDE
 
 
 #### OTA Uploading
