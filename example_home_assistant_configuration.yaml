@@ -1,0 +1,54 @@
+mqtt:  
+  broker: your.mqtt.ip.address  
+  port: 1883  
+  client_id: home-assistant-1  
+  username: YOURUSERNAME  
+  password: YOURPASSWORD  
+  
+  
+light:  
+  - platform: mqtt_json  
+    name: "SN1 LED"  
+    state_topic: "bruh/sensornode1"  
+    command_topic: "bruh/sensornode1/set"  
+    brightness: true  
+    flash: true  
+    rgb: true  
+    optimistic: false  
+    qos: 0  
+  
+  
+sensor:  
+  - platform: mqtt  
+    state_topic: "bruh/sensornode1"  
+    name: "SN1 Humidity"  
+    unit_of_measurement: "%"  
+    value_template: '{{ value_json.humidity | round(1) }}'  
+  
+  - platform: mqtt  
+    state_topic: "bruh/sensornode1"  
+    name: "SN1 LDR"  
+    unit_of_measurement: "LUX"  
+    value_template: '{{ value_json.ldr }}'  
+  
+  - platform: mqtt  
+    state_topic: "bruh/sensornode1"  
+    name: "SN1 PIR"  
+    value_template: '{{ value_json.motion }}'  
+  
+  - platform: mqtt  
+    state_topic: "bruh/sensornode1"  
+    name: "SN1 Temperature"  
+    unit_of_measurement: "°F"  
+    value_template: '{{ value_json.temperature | round(1) }}'  
+  
+  
+group:  
+  sensor_node_1_card:  
+    name: Sensor Node 1  
+    entities:  
+      - sensor.sn1_temperature  
+      - sensor.sn1_humidity  
+      - sensor.sn1_ldr  
+      - sensor.sn1_pir  
+      - light.sn1_led
