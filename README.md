@@ -32,7 +32,7 @@ This code also supports remote uploading to the ESP8266 using Arduino's OTA libr
 - [Power Supply](http://geni.us/ZZ1r)
 - [Common Cathode RGB Led](http://geni.us/nFcB)
 - [Header Wires](http://geni.us/pvFNG)
-- [Mini PIR Sensor](http://geni.us/dbGQ)
+- [AM312 Mini PIR Sensor](http://geni.us/dbGQ)
 
 **Aliexpress (long shipping = cheap prices)**
 - [NodeMCU 1.0](http://geni.us/EfYA)
@@ -43,7 +43,7 @@ This code also supports remote uploading to the ESP8266 using Arduino's OTA libr
 - [Power Supply](http://geni.us/NSYjvb)
 - [Common Cathode RGB Led](http://geni.us/OfHbhZb)
 - [Header Wires](http://geni.us/Iv6p9)
-- [Mini PIR Sensor](http://geni.us/WBKyxhx)
+- [AM312 Mini PIR Sensor](http://geni.us/WBKyxhx)
 
 
 ### Wiring Diagram
