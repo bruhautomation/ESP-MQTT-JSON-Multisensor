@@ -27,7 +27,6 @@
 #define mqtt_server "your.mqtt.server.ip"
 #define mqtt_user "yourMQTTusername" 
 #define mqtt_password "yourMQTTpassword"
-#define mqtt_port 1883
 
 
 /************* MQTT TOPICS (change these topics as you wish)  **************************/
@@ -79,6 +78,7 @@ int calibrationTime = 0;
 
 const int BUFFER_SIZE = 300;
 
+#define MQTT_MAX_PACKET_SIZE 512
 
 
 /******************************** GLOBALS for fade/flash *******************************/
