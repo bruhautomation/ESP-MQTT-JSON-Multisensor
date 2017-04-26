@@ -1,4 +1,4 @@
-# ESP MQTT JSON Digital LEDs
+# ESP MQTT JSON Multisensor
 
 This project shows a super easy way to get started with your own DIY Multisensor to use with [Home Assistant](https://home-assistant.io/), a sick, open-source Home Automation platform that can do just about anything. 
 
