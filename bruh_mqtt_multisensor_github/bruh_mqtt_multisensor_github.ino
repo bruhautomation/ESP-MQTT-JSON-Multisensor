@@ -27,6 +27,7 @@
 #define mqtt_server "your.mqtt.server.ip"
 #define mqtt_user "yourMQTTusername" 
 #define mqtt_password "yourMQTTpassword"
+#define mqtt_port 1883
 
 
 /************* MQTT TOPICS (change these topics as you wish)  **************************/
