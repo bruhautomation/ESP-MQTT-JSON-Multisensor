@@ -16,7 +16,7 @@
   
   - You will also need to download the follow libraries by going to Sketch -> Include Libraries -> Manage Libraries
       - DHT sensor library 
-      - Adfruit unified sensor
+      - Adafruit unified sensor
       - PubSubClient
       - ArduinoJSON
 
