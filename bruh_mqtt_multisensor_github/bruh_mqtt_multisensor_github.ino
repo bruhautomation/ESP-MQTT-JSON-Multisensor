@@ -19,7 +19,9 @@
       - Adafruit unified sensor
       - PubSubClient
       - ArduinoJSON
-
+	  
+	Update by Knutella 5-16-2017 Fixed MQTT disconnects when wifi drops by moving around Reconnect and adding a software reset of MCU
+	
 */
 
 
@@ -35,11 +37,11 @@
 
 
 /************ WIFI and MQTT INFORMATION (CHANGE THESE FOR YOUR SETUP) ******************/
-#define wifi_ssid "YourSSID" //type your WIFI information inside the quotes
-#define wifi_password "YourWIFIpassword"
-#define mqtt_server "your.mqtt.server.ip"
-#define mqtt_user "yourMQTTusername" 
-#define mqtt_password "yourMQTTpassword"
+#define wifi_ssid "REDACTED" //type your WIFI information inside the quotes
+#define wifi_password "REDACTED"
+#define mqtt_server "REDACTED"
+#define mqtt_user "REDACTED" 
+#define mqtt_password "REDACTED"
 #define mqtt_port 1883
 
 
@@ -186,7 +188,7 @@ void setup() {
   Serial.println("Ready");
   Serial.print("IPess: ");
   Serial.println(WiFi.localIP());
-
+  reconnect();
 }
 
 
@@ -402,17 +404,16 @@ bool checkBoundSensor(float newValue, float prevValue, float maxDiff) {
 }
 
 
-
 /********************************** START MAIN LOOP***************************************/
 void loop() {
 
   ArduinoOTA.handle();
-
+  
   if (!client.connected()) {
-    reconnect();
+    // reconnect();
+    software_Reset();
   }
   client.loop();
-
 
   if (!inFade) {
 
@@ -592,3 +593,9 @@ int calculateVal(int step, int val, int i) {
   return val;
 }
 
+/****reset***/
+void software_Reset() // Restarts program from beginning but does not reset the peripherals and registers
+{
+Serial.print("resetting");
+ESP.reset(); 
+}
