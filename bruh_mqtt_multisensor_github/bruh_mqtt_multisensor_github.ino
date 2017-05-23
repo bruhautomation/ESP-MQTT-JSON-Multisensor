@@ -416,7 +416,7 @@ void loop() {
 
   if (!inFade) {
 
-    float newTempValue = dht.readTemperature(true);
+    float newTempValue = dht.readTemperature(true); //to use celsius remove the true text inside the parentheses  
     float newHumValue = dht.readHumidity();
 
     //PIR CODE
