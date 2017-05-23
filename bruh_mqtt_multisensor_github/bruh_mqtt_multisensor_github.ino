@@ -19,6 +19,8 @@
       - Adafruit unified sensor
       - PubSubClient
       - ArduinoJSON
+            
+  UPDATE 23 MAY 2017 - The MQTT_MAX_PACKET_SIZE parameter may not be setting appropriately do to a bug in the PubSub library. If the MQTT messages are not being transmitted as expected please you may need to change the MQTT_MAX_PACKET_SIZE parameter in "PubSubClient.h" directly.
 
 */
 
