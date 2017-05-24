@@ -35,17 +35,17 @@
 
 
 /************ WIFI and MQTT INFORMATION (CHANGE THESE FOR YOUR SETUP) ******************/
-#define wifi_ssid "YourSSID" //type your WIFI information inside the quotes
-#define wifi_password "YourWIFIpassword"
-#define mqtt_server "your.mqtt.server.ip"
-#define mqtt_user "yourMQTTusername" 
-#define mqtt_password "yourMQTTpassword"
+#define wifi_ssid "lilOldHouse" //type your WIFI information inside the quotes
+#define wifi_password "4701lil0LDH0use"
+#define mqtt_server "192.168.47.202"
+#define mqtt_user "homeassistant" 
+#define mqtt_password "m2bkmx"
 #define mqtt_port 1883
 
 
 /************* MQTT TOPICS (change these topics as you wish)  **************************/
-#define light_state_topic "bruh/sensornode1"
-#define light_set_topic "bruh/sensornode1/set"
+#define light_state_topic "home/sensornode1"
+#define light_set_topic "home/sensornode1/set"
 
 const char* on_cmd = "ON";
 const char* off_cmd = "OFF";
@@ -54,7 +54,7 @@ const char* off_cmd = "OFF";
 
 /**************************** FOR OTA **************************************************/
 #define SENSORNAME "sensornode1"
-#define OTApassword "bruh"
+#define OTApassword "m2bkmx"
 int OTAport = 8266;
 
 
@@ -67,6 +67,8 @@ const int bluePin = D3;
 #define DHTPIN    D7
 #define DHTTYPE   DHT22
 #define LDRPIN    A0
+/***Added for reed***/
+#define REEDPIN   D6
 
 
 
@@ -85,6 +87,10 @@ float humValue;
 int pirValue;
 int pirStatus;
 String motionStatus;
+/***Added for reed***/
+int reedValue;
+int reedStatus;
+String doorStatus;
 
 char message_buff[100];
 
@@ -140,7 +146,8 @@ void setup() {
   pinMode(PIRPIN, INPUT);
   pinMode(DHTPIN, INPUT);
   pinMode(LDRPIN, INPUT);
-
+  pinMode(REEDPIN, INPUT);
+  
   Serial.begin(115200);
   delay(10);
 
@@ -186,7 +193,7 @@ void setup() {
   Serial.println("Ready");
   Serial.print("IPess: ");
   Serial.println(WiFi.localIP());
-
+  reconnect();
 }
 
 
@@ -346,7 +353,7 @@ void sendState() {
   root["motion"] = (String)motionStatus;
   root["ldr"] = (String)LDR;
   root["temperature"] = (String)tempValue;
-
+  root["reed"] = (String)doorStatus;
 
   char buffer[root.measureLength() + 1];
   root.printTo(buffer, sizeof(buffer));
@@ -409,7 +416,8 @@ void loop() {
   ArduinoOTA.handle();
 
   if (!client.connected()) {
-    reconnect();
+//    reconnect();
+    software_Reset();
   }
   client.loop();
 
@@ -418,6 +426,22 @@ void loop() {
 
     float newTempValue = dht.readTemperature(true);
     float newHumValue = dht.readHumidity();
+
+    //reed CODE
+    reedValue = digitalRead(REEDPIN); //read state of the REED
+
+    if (reedValue == LOW && reedStatus != 1) {
+      doorStatus = "closed";
+      sendState();
+      reedStatus = 1;
+    }
+
+    else if (reedValue == HIGH && reedStatus != 2) {
+      doorStatus = "open";
+      sendState();
+      reedStatus = 2;
+    }
+    delay(100);
 
     //PIR CODE
     pirValue = digitalRead(PIRPIN); //read state of the
@@ -592,3 +616,9 @@ int calculateVal(int step, int val, int i) {
   return val;
 }
 
+/****reset***/
+void software_Reset() // Restarts program from beginning but does not reset the peripherals and registers
+{
+Serial.print("resetting");
+ESP.reset(); 
+}
