@@ -35,17 +35,17 @@
 
 
 /************ WIFI and MQTT INFORMATION (CHANGE THESE FOR YOUR SETUP) ******************/
-#define wifi_ssid "lilOldHouse" //type your WIFI information inside the quotes
-#define wifi_password "4701lil0LDH0use"
-#define mqtt_server "192.168.47.202"
-#define mqtt_user "homeassistant" 
-#define mqtt_password "m2bkmx"
+#define wifi_ssid "YourSSID" //type your WIFI information inside the quotes
+#define wifi_password "YourWIFIpassword"
+#define mqtt_server "your.mqtt.server.ip"
+#define mqtt_user "yourMQTTusername" 
+#define mqtt_password "yourMQTTpassword"
 #define mqtt_port 1883
 
 
 /************* MQTT TOPICS (change these topics as you wish)  **************************/
-#define light_state_topic "home/sensornode1"
-#define light_set_topic "home/sensornode1/set"
+#define light_state_topic "bruh/sensornode1"
+#define light_set_topic "bruh/sensornode1/set"
 
 const char* on_cmd = "ON";
 const char* off_cmd = "OFF";
@@ -54,7 +54,7 @@ const char* off_cmd = "OFF";
 
 /**************************** FOR OTA **************************************************/
 #define SENSORNAME "sensornode1"
-#define OTApassword "m2bkmx"
+#define OTApassword "bruh"
 int OTAport = 8266;
 
 
