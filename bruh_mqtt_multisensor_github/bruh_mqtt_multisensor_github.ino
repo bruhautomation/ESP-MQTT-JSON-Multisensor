@@ -19,7 +19,9 @@
       - Adafruit unified sensor
       - PubSubClient
       - ArduinoJSON
-            
+	  
+	Update by Knutella 5-16-2017 Fixed MQTT disconnects when wifi drops by moving around Reconnect and adding a software reset of MCU
+	           
   UPDATE 23 MAY 2017 - The MQTT_MAX_PACKET_SIZE parameter may not be setting appropriately do to a bug in the PubSub library. If the MQTT messages are not being transmitted as expected please you may need to change the MQTT_MAX_PACKET_SIZE parameter in "PubSubClient.h" directly.
 
 */
@@ -43,6 +45,7 @@
 #define mqtt_user "yourMQTTusername" 
 #define mqtt_password "yourMQTTpassword"
 #define mqtt_port 1883
+
 
 
 /************* MQTT TOPICS (change these topics as you wish)  **************************/
@@ -188,7 +191,7 @@ void setup() {
   Serial.println("Ready");
   Serial.print("IPess: ");
   Serial.println(WiFi.localIP());
-
+  reconnect();
 }
 
 
@@ -404,17 +407,16 @@ bool checkBoundSensor(float newValue, float prevValue, float maxDiff) {
 }
 
 
-
 /********************************** START MAIN LOOP***************************************/
 void loop() {
 
   ArduinoOTA.handle();
-
+  
   if (!client.connected()) {
-    reconnect();
+    // reconnect();
+    software_Reset();
   }
   client.loop();
-
 
   if (!inFade) {
 
@@ -594,3 +596,9 @@ int calculateVal(int step, int val, int i) {
   return val;
 }
 
+/****reset***/
+void software_Reset() // Restarts program from beginning but does not reset the peripherals and registers
+{
+Serial.print("resetting");
+ESP.reset(); 
+}
