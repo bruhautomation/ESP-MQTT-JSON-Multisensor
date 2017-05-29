@@ -21,7 +21,9 @@
       - ArduinoJSON
 	  
 	Update by Knutella 5-16-2017 Fixed MQTT disconnects when wifi drops by moving around Reconnect and adding a software reset of MCU
-	
+	           
+  UPDATE 23 MAY 2017 - The MQTT_MAX_PACKET_SIZE parameter may not be setting appropriately do to a bug in the PubSub library. If the MQTT messages are not being transmitted as expected please you may need to change the MQTT_MAX_PACKET_SIZE parameter in "PubSubClient.h" directly.
+
 */
 
 
@@ -37,12 +39,13 @@
 
 
 /************ WIFI and MQTT INFORMATION (CHANGE THESE FOR YOUR SETUP) ******************/
-#define wifi_ssid "REDACTED" //type your WIFI information inside the quotes
-#define wifi_password "REDACTED"
-#define mqtt_server "REDACTED"
-#define mqtt_user "REDACTED" 
-#define mqtt_password "REDACTED"
+#define wifi_ssid "YourSSID" //type your WIFI information inside the quotes
+#define wifi_password "YourWIFIpassword"
+#define mqtt_server "your.mqtt.server.ip"
+#define mqtt_user "yourMQTTusername" 
+#define mqtt_password "yourMQTTpassword"
 #define mqtt_port 1883
+
 
 
 /************* MQTT TOPICS (change these topics as you wish)  **************************/
@@ -417,7 +420,7 @@ void loop() {
 
   if (!inFade) {
 
-    float newTempValue = dht.readTemperature(true);
+    float newTempValue = dht.readTemperature(true); //to use celsius remove the true text inside the parentheses  
     float newHumValue = dht.readHumidity();
 
     //PIR CODE

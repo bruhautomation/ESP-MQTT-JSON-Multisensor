@@ -84,6 +84,6 @@ Flash The Light - light.turn_on
 Fade the Light Off Over 5 Seconds - light.turn_off
 ```
 {"entity_id":"light.sn1_led",
-"transition":"50"
+"transition":"5"
 }
 ```
