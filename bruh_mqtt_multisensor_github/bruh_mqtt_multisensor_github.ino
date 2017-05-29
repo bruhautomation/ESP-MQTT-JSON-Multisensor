@@ -20,7 +20,7 @@
       - PubSubClient
       - ArduinoJSON
 	  
-	Update by Knutella 5-16-2017 Fixed MQTT disconnects when wifi drops by moving around Reconnect and adding a software reset of MCU
+  UPDATE 16 MAY 2017 by Knutella - Fixed MQTT disconnects when wifi drops by moving around Reconnect and adding a software reset of MCU
 	           
   UPDATE 23 MAY 2017 - The MQTT_MAX_PACKET_SIZE parameter may not be setting appropriately do to a bug in the PubSub library. If the MQTT messages are not being transmitted as expected please you may need to change the MQTT_MAX_PACKET_SIZE parameter in "PubSubClient.h" directly.
 
@@ -59,7 +59,7 @@ const char* off_cmd = "OFF";
 
 /**************************** FOR OTA **************************************************/
 #define SENSORNAME "sensornode1"
-#define OTApassword "bruh"
+#define OTApassword "YouPassword" // change this to whatever password you want to use when you upload OTA
 int OTAport = 8266;
 
 
