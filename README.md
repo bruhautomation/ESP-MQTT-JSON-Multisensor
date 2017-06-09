@@ -10,7 +10,7 @@ The code covered in this repository utilizies Home Assistant's [MQTT JSON Light 
 
 ### Supported Features Include
 - **DHT22** temperature sensor
-- **DHT 22** humdidity sensor
+- **DHT22** humidity sensor
 - **AM312** PIR motion sensor 
 - **photoresistor** or **TEMT600** light sensor
 - **RGB led** with support for color, flash, fade, and transition
