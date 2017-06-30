@@ -8,20 +8,20 @@
 
   Thanks much to @corbanmailloux for providing a great framework for implementing flash/fade with HomeAssistant https://github.com/corbanmailloux/esp-mqtt-rgb-led
 
-  To use this code you will need the following dependancies: 
-  
-  - Support for the ESP8266 boards. 
+  To use this code you will need the following dependancies:
+
+  - Support for the ESP8266 boards.
         - You can add it to the board manager by going to File -> Preference and pasting http://arduino.esp8266.com/stable/package_esp8266com_index.json into the Additional Board Managers URL field.
         - Next, download the ESP8266 dependancies by going to Tools -> Board -> Board Manager and searching for ESP8266 and installing it.
-  
+
   - You will also need to download the follow libraries by going to Sketch -> Include Libraries -> Manage Libraries
-      - DHT sensor library 
+      - DHT sensor library
       - Adafruit unified sensor
       - PubSubClient
       - ArduinoJSON
-	  
+
   UPDATE 16 MAY 2017 by Knutella - Fixed MQTT disconnects when wifi drops by moving around Reconnect and adding a software reset of MCU
-	           
+
   UPDATE 23 MAY 2017 - The MQTT_MAX_PACKET_SIZE parameter may not be setting appropriately do to a bug in the PubSub library. If the MQTT messages are not being transmitted as expected please you may need to change the MQTT_MAX_PACKET_SIZE parameter in "PubSubClient.h" directly.
 
 */
@@ -29,6 +29,7 @@
 
 
 #include <ESP8266WiFi.h>
+#include <Adafruit_Sensor.h>
 #include <DHT.h>
 #include <PubSubClient.h>
 #include <ESP8266mDNS.h>
@@ -39,18 +40,18 @@
 
 
 /************ WIFI and MQTT INFORMATION (CHANGE THESE FOR YOUR SETUP) ******************/
-#define wifi_ssid "YourSSID" //type your WIFI information inside the quotes
-#define wifi_password "YourWIFIpassword"
-#define mqtt_server "your.mqtt.server.ip"
-#define mqtt_user "yourMQTTusername" 
-#define mqtt_password "yourMQTTpassword"
-#define mqtt_port 1883
+#define wifi_ssid "{{ wifi_ssid }}" //type your WIFI information inside the quotes
+#define wifi_password "{{ wifi_pwd }}"
+#define mqtt_server "{{ mqtt_server }}"
+#define mqtt_user "{{ mqtt_user }}"
+#define mqtt_password "{{ mqtt_pwd }}"
+#define mqtt_port {{ mqtt_port }}
 
 
 
 /************* MQTT TOPICS (change these topics as you wish)  **************************/
-#define light_state_topic "bruh/sensornode1"
-#define light_set_topic "bruh/sensornode1/set"
+#define light_state_topic "bruh/{{ sensor_name }}"
+#define light_set_topic "bruh/{{ sensor_name }}/set"
 
 const char* on_cmd = "ON";
 const char* off_cmd = "OFF";
@@ -58,8 +59,8 @@ const char* off_cmd = "OFF";
 
 
 /**************************** FOR OTA **************************************************/
-#define SENSORNAME "sensornode1"
-#define OTApassword "YouPassword" // change this to whatever password you want to use when you upload OTA
+#define SENSORNAME "{{ sensor_name }}"
+#define OTApassword "{{ ota_pwd }}" // change this to whatever password you want to use when you upload OTA
 int OTAport = 8266;
 
 
@@ -411,7 +412,7 @@ bool checkBoundSensor(float newValue, float prevValue, float maxDiff) {
 void loop() {
 
   ArduinoOTA.handle();
-  
+
   if (!client.connected()) {
     // reconnect();
     software_Reset();
@@ -420,7 +421,7 @@ void loop() {
 
   if (!inFade) {
 
-    float newTempValue = dht.readTemperature(true); //to use celsius remove the true text inside the parentheses  
+    float newTempValue = dht.readTemperature(true); //to use celsius remove the true text inside the parentheses
     float newHumValue = dht.readHumidity();
 
     //PIR CODE
@@ -600,5 +601,5 @@ int calculateVal(int step, int val, int i) {
 void software_Reset() // Restarts program from beginning but does not reset the peripherals and registers
 {
 Serial.print("resetting");
-ESP.reset(); 
+ESP.reset();
 }

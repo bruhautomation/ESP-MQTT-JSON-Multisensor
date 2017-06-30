@@ -1,0 +1,36 @@
+light:
+  - platform: mqtt_json
+    name: "{{ sensor_name }} LED"
+    state_topic: "bruh/{{ sensor_name }}"
+    command_topic: "bruh/{{ sensor_name}}/set"
+    brightness: true
+    flash: true
+    rgb: true
+    optimistic: false
+    qos: 0
+
+
+sensor:
+  - platform: mqtt
+    state_topic: "bruh/{{ sensor_name}}"
+    name: "{{ sensor_name }} Humidity"
+    unit_of_measurement: "%"
+    {% raw %} value_template: '{{ value_json.humidity | round(1) }}' {% endraw %}
+
+  - platform: mqtt
+    state_topic: "bruh/{{ sensor_name}}"
+    name: "{{ sensor_name }} Light Level"
+    ##This sensor is not calibrated to actual LUX. Rather, this a map of the input voltage ranging from 0 - 1023.
+    unit_of_measurement: "LUX"
+    {% raw %} value_template: '{{ value_json.ldr }}' {% endraw %}
+
+  - platform: mqtt
+    state_topic: "bruh/{{ sensor_name}}"
+    name: "{{ sensor_name }} Motion"
+    {% raw %} value_template: '{{ value_json.motion }}' {% endraw %}
+
+  - platform: mqtt
+    state_topic: "bruh/{{ sensor_name}}"
+    name: "{{ sensor_name }} Temperature"
+    unit_of_measurement: "°F"
+    {% raw %} value_template: '{{ value_json.temperature | round(1) }}' {% endraw %}
