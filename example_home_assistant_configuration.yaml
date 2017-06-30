@@ -1,4 +1,4 @@
-mqtpt:  
+mqtt:  
   broker: your.mqtt.ip.address  
   port: 1883  
   client_id: home-assistant-1  
