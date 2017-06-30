@@ -1,0 +1,71 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import shutil
+import jinja2
+
+THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+TEMPLATE_DIR = os.path.join(
+    os.path.dirname(os.path.abspath(THIS_DIR)), 'templates')
+
+PROJECT_NAME = 'bruh_mqtt_multisensor'
+
+
+def render_sketch_file(sensor_name):
+    wifi_ssid = os.environ.get('WIFI_SSID')
+    wifi_pwd = os.environ.get('WIFI_PWD')
+
+    mqtt_server = os.environ.get('MQTT_SERVER')
+    mqtt_user = os.environ.get('MQTT_USER')
+    mqtt_pwd = os.environ.get('MQTT_PWD')
+    mqtt_port = os.environ.get('MQTT_PORT')
+
+    ota_pwd = os.environ.get('OTA_PWD')
+
+    j2_env = jinja2.Environment(
+        loader=jinja2.FileSystemLoader(TEMPLATE_DIR), trim_blocks=True)
+    template = j2_env.get_template('bruh_mqtt_multisensor.j2')
+
+    output_str = template.render(
+        wifi_ssid=wifi_ssid,
+        wifi_pwd=wifi_pwd,
+        mqtt_server=mqtt_server,
+        mqtt_user=mqtt_user,
+        mqtt_pwd=mqtt_pwd,
+        mqtt_port=mqtt_port,
+        sensor_name=sensor_name,
+        ota_pwd=ota_pwd)
+
+    return output_str
+
+
+def render_hass_config(sensor_name):
+    j2_env = jinja2.Environment(
+        loader=jinja2.FileSystemLoader(TEMPLATE_DIR), trim_blocks=True)
+    template = j2_env.get_template('home_assistant_configuration.j2')
+
+    output_str = template.render(sensor_name=sensor_name)
+
+    return output_str
+
+
+if __name__ == '__main__':
+    sensor_name = sys.argv[1]
+
+    sketch_str = render_sketch_file(sensor_name)
+
+    if os.path.exists(PROJECT_NAME):
+        shutil.rmtree(PROJECT_NAME)
+
+    os.mkdir(PROJECT_NAME)
+
+    ino_out = os.path.join(PROJECT_NAME, PROJECT_NAME + '.ino')
+    with open(ino_out, 'w') as sketch_file:
+        sketch_file.write(sketch_str)
+
+    hass_str = render_hass_config(sensor_name)
+    print('#########################################')
+    print('## Copy Below and Place in Hass Config ##')
+    print('#########################################')
+    print(hass_str)
