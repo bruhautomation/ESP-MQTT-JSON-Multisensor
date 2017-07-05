@@ -58,7 +58,7 @@ const char* off_cmd = "OFF";
 
 
 /**************************** FOR OTA **************************************************/
-#define SENSORNAME "sensornode1"
+#define SENSORNAME "sensornode1" // This also sets the wifi/dhcp hostname
 #define OTApassword "YouPassword" // change this to whatever password you want to use when you upload OTA
 int OTAport = 8266;
 
@@ -206,6 +206,7 @@ void setup_wifi() {
   Serial.println(wifi_ssid);
 
   WiFi.mode(WIFI_STA);
+  WiFi.hostname(SENSORNAME);
   WiFi.begin(wifi_ssid, wifi_password);
 
   while (WiFi.status() != WL_CONNECTED) {
