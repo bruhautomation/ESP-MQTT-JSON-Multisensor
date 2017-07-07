@@ -351,6 +351,7 @@ void sendState() {
   root["motion"] = (String)motionStatus;
   root["ldr"] = (String)LDR;
   root["temperature"] = (String)tempValue;
+  root["heatIndex"] = (String)calculateHeatIndex(humValue, tempValue);
 
 
   char buffer[root.measureLength() + 1];
@@ -358,6 +359,31 @@ void sendState() {
 
   Serial.println(buffer);
   client.publish(light_state_topic, buffer, true);
+}
+
+
+/*
+ * Calculate Heat Index value AKA "Real Feel"
+ * NOAA heat index calculations taken from
+ * http://www.wpc.ncep.noaa.gov/html/heatindex_equation.shtml
+ */
+float calculateHeatIndex(float humidity, float temp) {
+  float heatIndex= 0;
+  if (temp >= 80) {
+    heatIndex = -42.379 + 2.04901523*temp + 10.14333127*humidity;
+    heatIndex = heatIndex - .22475541*temp*humidity - .00683783*temp*temp;
+    heatIndex = heatIndex - .05481717*humidity*humidity + .00122874*temp*temp*humidity;
+    heatIndex = heatIndex + .00085282*temp*humidity*humidity - .00000199*temp*temp*humidity*humidity;
+  } else {
+     heatIndex = 0.5 * (temp + 61.0 + ((temp - 68.0)*1.2) + (humidity * 0.094));
+  }
+
+  if (humidity < 13 && 80 <= temp <= 112) {
+     float adjustment = ((13-humidity)/4) * sqrt((17-abs(temp-95.))/17);
+     heatIndex = heatIndex - adjustment;
+  }
+
+  return heatIndex;
 }
 
 
