@@ -35,6 +35,7 @@
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
 #include <ArduinoJson.h>
+#include <MQ135.h>
 
 
 
@@ -72,6 +73,7 @@ const int bluePin = D3;
 #define DHTPIN    D7
 #define DHTTYPE   DHT22
 #define LDRPIN    A0
+#define MQ135PIN A1 // change this to the pin of the MQ135
 
 
 
@@ -134,7 +136,7 @@ byte flashBrightness = brightness;
 WiFiClient espClient;
 PubSubClient client(espClient);
 DHT dht(DHTPIN, DHTTYPE);
-
+MQ135 gasSensor = MQ135(MQ135PIN);
 
 
 /********************************** START SETUP*****************************************/
@@ -145,6 +147,7 @@ void setup() {
   pinMode(PIRPIN, INPUT);
   pinMode(DHTPIN, INPUT);
   pinMode(LDRPIN, INPUT);
+  pinMode(MQ135PIN,INPUT);
 
   Serial.begin(115200);
   delay(10);
@@ -352,6 +355,7 @@ void sendState() {
   root["ldr"] = (String)LDR;
   root["temperature"] = (String)tempValue;
   root["heatIndex"] = (String)calculateHeatIndex(humValue, tempValue);
+  root["airquality"] = (String)airQuality;
 
 
   char buffer[root.measureLength() + 1];
@@ -449,6 +453,8 @@ void loop() {
     float newTempValue = dht.readTemperature(true); //to use celsius remove the true text inside the parentheses  
     float newHumValue = dht.readHumidity();
 
+    float newAirQuality = gasSensor.getPPM(); // read out of the gas sensor
+
     //PIR CODE
     pirValue = digitalRead(PIRPIN); //read state of the
 
@@ -473,6 +479,11 @@ void loop() {
 
     if (checkBoundSensor(newHumValue, humValue, diffHUM)) {
       humValue = newHumValue;
+      sendState();
+    }
+
+    if (checkBoundSensor(newAirQuality, airQuality, diffAQ)) {
+      airQuality = newAirQuality;
       sendState();
     }
 
