@@ -101,6 +101,10 @@ const int BUFFER_SIZE = 300;
 
 #define MQTT_MAX_PACKET_SIZE 512
 
+// MQ-135 variables
+float diffAQ = 0.1; // sensitivity to report new update
+float airQuality;
+
 
 /******************************** GLOBALS for fade/flash *******************************/
 byte red = 255;
