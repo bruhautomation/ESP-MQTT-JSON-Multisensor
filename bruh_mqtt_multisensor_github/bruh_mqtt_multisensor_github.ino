@@ -19,14 +19,12 @@
       - Adafruit unified sensor
       - PubSubClient
       - ArduinoJSON
-	  
+    
   UPDATE 16 MAY 2017 by Knutella - Fixed MQTT disconnects when wifi drops by moving around Reconnect and adding a software reset of MCU
-	           
+             
   UPDATE 23 MAY 2017 - The MQTT_MAX_PACKET_SIZE parameter may not be setting appropriately do to a bug in the PubSub library. If the MQTT messages are not being transmitted as expected please you may need to change the MQTT_MAX_PACKET_SIZE parameter in "PubSubClient.h" directly.
 
 */
-
-
 
 #include <ESP8266WiFi.h>
 #include <DHT.h>
@@ -35,8 +33,19 @@
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
 #include <ArduinoJson.h>
-#include <MQ135.h>
 
+/*
+ * Uncomment to enable MQ type sensor
+*/
+ 
+//#define MY_MQ2
+//#define MY_MQ135
+
+#if defined(MY_MQ2)
+#include <MQ2.h>
+#elif defined(MY_MQ135)
+#include <MQ135.h>
+#endif
 
 
 /************ WIFI and MQTT INFORMATION (CHANGE THESE FOR YOUR SETUP) ******************/
@@ -73,7 +82,13 @@ const int bluePin = D3;
 #define DHTPIN    D7
 #define DHTTYPE   DHT22
 #define LDRPIN    A0
+
+#if defined(MY_MQ2)
+#define MQ2PIN A1 // change this to pin of the MQ2
+#elif defined(MY_MQ135)
 #define MQ135PIN A1 // change this to the pin of the MQ135
+#endif
+
 
 
 
@@ -101,9 +116,17 @@ const int BUFFER_SIZE = 300;
 
 #define MQTT_MAX_PACKET_SIZE 512
 
-// MQ-135 variables
+#if defined(MY_MQ2)
+int lpg, co, smoke;
+int diffLPG = 1;
+int diffCO = 1;
+int diffSmoke = 1;
+
+#elif defined(MY_MQ135)
 float diffAQ = 0.1; // sensitivity to report new update
 float airQuality;
+#endif
+
 
 
 /******************************** GLOBALS for fade/flash *******************************/
@@ -140,8 +163,13 @@ byte flashBrightness = brightness;
 WiFiClient espClient;
 PubSubClient client(espClient);
 DHT dht(DHTPIN, DHTTYPE);
-MQ135 gasSensor = MQ135(MQ135PIN);
 
+
+#if defined(MY_MQ2)
+MQ2 mq2(MQ2PIN);
+#elif defined(MY_MQ135)
+MQ135 gasSensor = MQ135(MQ135PIN);
+#endif
 
 /********************************** START SETUP*****************************************/
 void setup() {
@@ -151,8 +179,15 @@ void setup() {
   pinMode(PIRPIN, INPUT);
   pinMode(DHTPIN, INPUT);
   pinMode(LDRPIN, INPUT);
+  
+  #if defined(MY_MQ135)
   pinMode(MQ135PIN,INPUT);
-
+  #endif
+  
+  #if defined(MY_MQ2)
+  mq2.begin();
+  #endif
+  
   Serial.begin(115200);
   delay(10);
 
@@ -359,8 +394,13 @@ void sendState() {
   root["ldr"] = (String)LDR;
   root["temperature"] = (String)tempValue;
   root["heatIndex"] = (String)calculateHeatIndex(humValue, tempValue);
+  #if defined(MY_MQ2)
+  root["lpg"] = (String)lpg;
+  root["co"] = (String)co;
+  root["smoke"] = (String)smoke;
+  #elif defined(MY_MQ135)
   root["airquality"] = (String)airQuality;
-
+  #endif
 
   char buffer[root.measureLength() + 1];
   root.printTo(buffer, sizeof(buffer));
@@ -456,9 +496,37 @@ void loop() {
 
     float newTempValue = dht.readTemperature(true); //to use celsius remove the true text inside the parentheses  
     float newHumValue = dht.readHumidity();
+    
+    #if defined(MY_MQ2)
+    int newLPG = mq2.readLPG();
+    int newCO = mq2.readCO();
+    int newSmoke = mq2.readSmoke();
 
+    if (checkBoundSensor(newLPG, lpg, diffLPG)) {
+      lpg = newLPG;
+      sendState();
+    }
+    if (checkBoundSensor(newCO, co, diffCO)) {
+      co = newCO;
+      sendState();
+    }
+    if (checkBoundSensor(newSmoke, smoke, diffSmoke)) {
+      smoke = newSmoke;
+      sendState();
+    }
+    
+    #elif defined(MY_MQ135)
+    
     float newAirQuality = gasSensor.getPPM(); // read out of the gas sensor
 
+    if (checkBoundSensor(newAirQuality, airQuality, diffAQ)) {
+      airQuality = newAirQuality;
+      sendState();
+    }
+    
+    #endif
+
+    
     //PIR CODE
     pirValue = digitalRead(PIRPIN); //read state of the
 
@@ -485,12 +553,6 @@ void loop() {
       humValue = newHumValue;
       sendState();
     }
-
-    if (checkBoundSensor(newAirQuality, airQuality, diffAQ)) {
-      airQuality = newAirQuality;
-      sendState();
-    }
-
 
     int newLDR = analogRead(LDRPIN);
 
