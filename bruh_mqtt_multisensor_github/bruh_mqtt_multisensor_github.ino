@@ -180,10 +180,6 @@ void setup() {
   pinMode(DHTPIN, INPUT);
   pinMode(LDRPIN, INPUT);
   
-  #if defined(MY_MQ135)
-  pinMode(MQ135PIN,INPUT);
-  #endif
-  
   #if defined(MY_MQ2)
   mq2.begin();
   #endif
