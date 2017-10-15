@@ -348,7 +348,7 @@ void sendState() {
   root["brightness"] = brightness;
   root["motion"] = (String)motionStatus;
   root["ldr"] = (String)LDR;
-  if (tempValue>1) { //only transmit valid values
+  if (humValue>1) { //only transmit valid values
     root["humidity"] = (String)humValue;
     root["temperature"] = (String)tempValue;
     root["heatIndex"] = (String)calculateHeatIndex(humValue, tempValue);
