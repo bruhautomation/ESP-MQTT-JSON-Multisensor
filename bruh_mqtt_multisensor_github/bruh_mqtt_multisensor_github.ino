@@ -89,7 +89,7 @@ float humValue;
 
 int pirValue;
 int pirStatus;
-String motionStatus;
+String motionStatus="standby";
 
 char message_buff[100];
 
@@ -145,6 +145,9 @@ void setup() {
   pinMode(PIRPIN, INPUT);
   pinMode(DHTPIN, INPUT);
   pinMode(LDRPIN, INPUT);
+  pinMode(redPin,OUTPUT);
+  pinMode(greenPin,OUTPUT);
+  pinMode(bluePin,OUTPUT);
 
   Serial.begin(115200);
   delay(10);
@@ -345,14 +348,14 @@ void sendState() {
   color["g"] = green;
   color["b"] = blue;
 
-
   root["brightness"] = brightness;
-  root["humidity"] = (String)humValue;
   root["motion"] = (String)motionStatus;
   root["ldr"] = (String)LDR;
-  root["temperature"] = (String)tempValue;
-  root["heatIndex"] = (String)calculateHeatIndex(humValue, tempValue);
-
+  if (humValue>1) { //only transmit valid values
+    root["humidity"] = (String)humValue;
+    root["temperature"] = (String)tempValue;
+    root["heatIndex"] = (String)calculateHeatIndex(humValue, tempValue);
+  }
 
   char buffer[root.measureLength() + 1];
   root.printTo(buffer, sizeof(buffer));
