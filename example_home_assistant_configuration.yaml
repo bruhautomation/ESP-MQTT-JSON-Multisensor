@@ -45,11 +45,21 @@ sensor:
 
  - platform: mqtt
     state_topic: "bruh/sensornode1"
-    name: "SN1 Real Feel"
+    name: "SN1 Real Feel" 
     unit_of_measurement: "°F"
     value_template: '{{ value_json.heatIndex | round(1) }}'
   
   
+binary_sensor:
+  - platform: mqtt
+    state_topic: "bruh/sensornode1"
+    name: "SN1 PIR"
+    value_template: '{{ value_json.motion }}'
+    payload_on: "motion_detected"
+    payload_off: "standby"
+    device_class: motion
+    
+    
 group:  
   sensor_node_1_card:  
     name: Sensor Node 1  
