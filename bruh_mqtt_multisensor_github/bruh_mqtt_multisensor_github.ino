@@ -83,6 +83,7 @@ float diffLDR = 25;
 
 float diffTEMP = 0.2;
 float tempValue;
+#define TEMP_IS_FAHRENHEIT true //to use celsius set to false
 
 float diffHUM = 1;
 float humValue;
@@ -368,21 +369,32 @@ void sendState() {
  * http://www.wpc.ncep.noaa.gov/html/heatindex_equation.shtml
  */
 float calculateHeatIndex(float humidity, float temp) {
+  #if TEMP_IS_FAHRENHEIT==false
+    //In the case that we're using Celcius in this, convert to F before calculating heat index.
+    float thisTemp = (temp * (9.0/5.0)) + 32.0; //Convert C to F
+  #else
+    float thisTemp = temp;
+  #endif
+
   float heatIndex= 0;
   if (temp >= 80) {
-    heatIndex = -42.379 + 2.04901523*temp + 10.14333127*humidity;
-    heatIndex = heatIndex - .22475541*temp*humidity - .00683783*temp*temp;
-    heatIndex = heatIndex - .05481717*humidity*humidity + .00122874*temp*temp*humidity;
-    heatIndex = heatIndex + .00085282*temp*humidity*humidity - .00000199*temp*temp*humidity*humidity;
+    heatIndex = -42.379 + 2.04901523*thisTemp + 10.14333127*humidity;
+    heatIndex = heatIndex - .22475541*thisTemp*humidity - .00683783*thisTemp*thisTemp;
+    heatIndex = heatIndex - .05481717*humidity*humidity + .00122874*thisTemp*thisTemp*humidity;
+    heatIndex = heatIndex + .00085282*thisTemp*humidity*humidity - .00000199*thisTemp*thisTemp*humidity*humidity;
   } else {
-     heatIndex = 0.5 * (temp + 61.0 + ((temp - 68.0)*1.2) + (humidity * 0.094));
+     heatIndex = 0.5 * (thisTemp + 61.0 + ((thisTemp - 68.0)*1.2) + (humidity * 0.094));
   }
 
-  if (humidity < 13 && 80 <= temp <= 112) {
-     float adjustment = ((13-humidity)/4) * sqrt((17-abs(temp-95.))/17);
+  if (humidity < 13 && 80 <= thisTemp && thisTemp <= 112) {
+     float adjustment = ((13.0-humidity)/4.0) * sqrt((17.0-abs(thisTemp-95.0))/17.0);
      heatIndex = heatIndex - adjustment;
   }
-
+  
+  #if TEMP_IS_FAHRENHEIT==false
+    heatIndex = (heatIndex - 32.0) * (5.0/9.0); //Convert back to C.
+  #endif
+  
   return heatIndex;
 }
 
@@ -446,7 +458,7 @@ void loop() {
 
   if (!inFade) {
 
-    float newTempValue = dht.readTemperature(true); //to use celsius remove the true text inside the parentheses  
+    float newTempValue = dht.readTemperature(TEMP_IS_FAHRENHEIT);
     float newHumValue = dht.readHumidity();
 
     //PIR CODE
