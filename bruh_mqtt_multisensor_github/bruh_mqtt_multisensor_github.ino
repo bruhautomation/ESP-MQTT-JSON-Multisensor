@@ -75,7 +75,7 @@ const int bluePin = D3;
 
 
 
-/**************************** SENSOR DEFINITIONS *******************************************/
+/**************************** SENSOR CONFIGURATION *****************************************/
 #define PIR_ON_STRING "motion detected"
 #define PIR_OFF_STRING "standby"
 
