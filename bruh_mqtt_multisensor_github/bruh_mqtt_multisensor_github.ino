@@ -22,7 +22,9 @@
 	  
   UPDATE 16 MAY 2017 by Knutella - Fixed MQTT disconnects when wifi drops by moving around Reconnect and adding a software reset of MCU
 	           
-  UPDATE 23 MAY 2017 - The MQTT_MAX_PACKET_SIZE parameter may not be setting appropriately do to a bug in the PubSub library. If the MQTT messages are not being transmitted as expected please you may need to change the MQTT_MAX_PACKET_SIZE parameter in "PubSubClient.h" directly.
+  UPDATE 23 MAY 2017 - The MQTT_MAX_PACKET_SIZE parameter may not be setting appropriately due to a bug in the PubSub library. If the MQTT messages are not being transmitted as expected you may need to change the MQTT_MAX_PACKET_SIZE parameter in "PubSubClient.h" directly.
+  
+  UPDATE 27 NOV 2017 - Changed HeatIndex to built in function of DHT library. Added definition for fahrenheit or celsius
 
 */
 
@@ -37,6 +39,8 @@
 #include <ArduinoJson.h>
 
 
+/************ TEMP SETTINGS (CHANGE THIS FOR YOUR SETUP) *******************************/
+#define IsFahrenheit true //to use celsius change to false
 
 /************ WIFI and MQTT INFORMATION (CHANGE THESE FOR YOUR SETUP) ******************/
 #define wifi_ssid "YourSSID" //type your WIFI information inside the quotes
@@ -351,7 +355,7 @@ void sendState() {
   root["motion"] = (String)motionStatus;
   root["ldr"] = (String)LDR;
   root["temperature"] = (String)tempValue;
-  root["heatIndex"] = (String)calculateHeatIndex(humValue, tempValue);
+  root["heatIndex"] = (String)dht.computeHeatIndex(tempValue, humValue, IsFahrenheit);
 
 
   char buffer[root.measureLength() + 1];
@@ -361,30 +365,6 @@ void sendState() {
   client.publish(light_state_topic, buffer, true);
 }
 
-
-/*
- * Calculate Heat Index value AKA "Real Feel"
- * NOAA heat index calculations taken from
- * http://www.wpc.ncep.noaa.gov/html/heatindex_equation.shtml
- */
-float calculateHeatIndex(float humidity, float temp) {
-  float heatIndex= 0;
-  if (temp >= 80) {
-    heatIndex = -42.379 + 2.04901523*temp + 10.14333127*humidity;
-    heatIndex = heatIndex - .22475541*temp*humidity - .00683783*temp*temp;
-    heatIndex = heatIndex - .05481717*humidity*humidity + .00122874*temp*temp*humidity;
-    heatIndex = heatIndex + .00085282*temp*humidity*humidity - .00000199*temp*temp*humidity*humidity;
-  } else {
-     heatIndex = 0.5 * (temp + 61.0 + ((temp - 68.0)*1.2) + (humidity * 0.094));
-  }
-
-  if (humidity < 13 && 80 <= temp <= 112) {
-     float adjustment = ((13-humidity)/4) * sqrt((17-abs(temp-95.))/17);
-     heatIndex = heatIndex - adjustment;
-  }
-
-  return heatIndex;
-}
 
 
 /********************************** START SET COLOR *****************************************/
@@ -446,7 +426,7 @@ void loop() {
 
   if (!inFade) {
 
-    float newTempValue = dht.readTemperature(true); //to use celsius remove the true text inside the parentheses  
+    float newTempValue = dht.readTemperature(IsFahrenheit);
     float newHumValue = dht.readHumidity();
 
     //PIR CODE
