@@ -118,15 +118,6 @@ const int bluePin = D3;
 #define DHTTYPE   DHT22
 #define LDRPIN    A0
 
-#if defined(MY_MQ2)
-#define MQ2PIN A1 // change this to pin of the MQ2
-#elif defined(MY_MQ135)
-#define MQ135PIN A1 // change this to the pin of the MQ135
-#endif
-
-
-
-
 /**************************** SENSOR DEFINITIONS *******************************************/
 float ldrValue;
 int LDR;
