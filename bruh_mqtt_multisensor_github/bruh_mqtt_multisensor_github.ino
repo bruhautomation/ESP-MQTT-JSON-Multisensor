@@ -24,6 +24,7 @@
 	           
   UPDATE 23 MAY 2017 - The MQTT_MAX_PACKET_SIZE parameter may not be setting appropriately do to a bug in the PubSub library. If the MQTT messages are not being transmitted as expected please you may need to change the MQTT_MAX_PACKET_SIZE parameter in "PubSubClient.h" directly.
 
+  UPDATE 24 AUG 2018 - Some pins on a NODE MCU bord are better not used. Change of pins
 */
 
 
@@ -65,9 +66,10 @@ int OTAport = 8266;
 
 
 /**************************** PIN DEFINITIONS ********************************************/
+// Do not use D3, D4, D8. It will alter the bootmode and lead to errors
 const int redPin = D1;
 const int greenPin = D2;
-const int bluePin = D3;
+const int bluePin = D0;
 #define PIRPIN    D5
 #define DHTPIN    D7
 #define DHTTYPE   DHT22
@@ -142,13 +144,24 @@ void setup() {
 
   Serial.begin(115200);
 
+  ESP.wdtDisable();
+  ESP.wdtEnable(1000);
+
   pinMode(PIRPIN, INPUT);
   pinMode(DHTPIN, INPUT);
   pinMode(LDRPIN, INPUT);
 
-  Serial.begin(115200);
+  //new code to turn LED on then off
+  analogWrite(redPin, 1);
+  analogWrite(greenPin, 1);
+  analogWrite(bluePin, 1);
+  analogWrite(redPin, 0);
+  analogWrite(greenPin, 0);
+  analogWrite(bluePin, 0);
+
   delay(10);
 
+  ESP.wdtFeed();
   ArduinoOTA.setPort(OTAport);
 
   ArduinoOTA.setHostname(SENSORNAME);
@@ -209,8 +222,11 @@ void setup_wifi() {
   WiFi.begin(wifi_ssid, wifi_password);
 
   while (WiFi.status() != WL_CONNECTED) {
+    analogWrite(redPin, 1);
     delay(500);
     Serial.print(".");
+    analogWrite(redPin, 0);
+    delay(500);
   }
 
   Serial.println("");
@@ -347,10 +363,16 @@ void sendState() {
 
 
   root["brightness"] = brightness;
-  root["humidity"] = (String)humValue;
   root["motion"] = (String)motionStatus;
-  root["ldr"] = (String)LDR;
-  root["temperature"] = (String)tempValue;
+
+  if (LDR > 1) {
+    root["ldr"] = (String)(float(100 * LDR) / float(1024));
+  }
+
+  if (humValue > 1 && tempValue > 1) { //only transmit valid values
+    root["humidity"] = (String)humValue;
+    root["temperature"] = (String)tempValue;
+  }
   root["heatIndex"] = (String)calculateHeatIndex(humValue, tempValue);
 
 
@@ -407,6 +429,28 @@ void setColor(int inR, int inG, int inB) {
 /********************************** START RECONNECT*****************************************/
 void reconnect() {
   // Loop until we're reconnected
+
+  ESP.wdtFeed();
+  Serial.println("Try to reconnect");
+  analogWrite(redPin, 0);
+  analogWrite(greenPin, 0);
+  analogWrite(bluePin, 0);
+  int iterate = 0;
+  while (WiFi.status() != WL_CONNECTED) {
+    ESP.wdtFeed();    
+    analogWrite(bluePin, 0);
+    delay(500);
+    Serial.print(".");
+    delay(500);
+    iterate++;
+    if (iterate == 300) {
+      ESP.wdtDisable();
+      ESP.wdtFeed();
+      Serial.println("Rebooting");
+      Serial.println("");
+      ESP.reset();
+    }
+  }
   while (!client.connected()) {
     Serial.print("Attempting MQTT connection...");
     // Attempt to connect
@@ -439,8 +483,10 @@ void loop() {
   ArduinoOTA.handle();
   
   if (!client.connected()) {
-    // reconnect();
-    software_Reset();
+    Serial.println("Wait for 10s");
+    delay(10000);
+    ESP.wdtFeed();
+    reconnect();
   }
   client.loop();
 
@@ -622,9 +668,3 @@ int calculateVal(int step, int val, int i) {
   return val;
 }
 
-/****reset***/
-void software_Reset() // Restarts program from beginning but does not reset the peripherals and registers
-{
-Serial.print("resetting");
-ESP.reset(); 
-}
