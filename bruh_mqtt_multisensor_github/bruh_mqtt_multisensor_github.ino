@@ -19,11 +19,12 @@
       - Adafruit unified sensor
       - PubSubClient
       - ArduinoJSON
-	  
+
   UPDATE 16 MAY 2017 by Knutella - Fixed MQTT disconnects when wifi drops by moving around Reconnect and adding a software reset of MCU
-	           
+             
   UPDATE 23 MAY 2017 - The MQTT_MAX_PACKET_SIZE parameter may not be setting appropriately do to a bug in the PubSub library. If the MQTT messages are not being transmitted as expected please you may need to change the MQTT_MAX_PACKET_SIZE parameter in "PubSubClient.h" directly.
 
+  UPDATE 01 JAN 2019 - Added a Relay to the sensor. It allows turn on/off any device attached to the relay by mqtt.
 */
 
 
@@ -47,10 +48,10 @@
 #define mqtt_port 1883
 
 
-
 /************* MQTT TOPICS (change these topics as you wish)  **************************/
 #define light_state_topic "bruh/sensornode1"
-#define light_set_topic "bruh/sensornode1/set"
+#define light_set_topic "bruh/sensornode1/light"
+#define relay_set_topic "bruh/sensornode1/relay"
 
 const char* on_cmd = "ON";
 const char* off_cmd = "OFF";
@@ -72,6 +73,7 @@ const int bluePin = D3;
 #define DHTPIN    D7
 #define DHTTYPE   DHT22
 #define LDRPIN    A0
+#define RELAYPIN  D0
 
 
 
@@ -90,6 +92,8 @@ float humValue;
 int pirValue;
 int pirStatus;
 String motionStatus;
+
+int relayValue;
 
 char message_buff[100];
 
@@ -111,6 +115,7 @@ byte realGreen = 0;
 byte realBlue = 0;
 
 bool stateOn = false;
+bool relayOn = false;
 
 bool startFade = false;
 unsigned long lastLoop = 0;
@@ -145,6 +150,8 @@ void setup() {
   pinMode(PIRPIN, INPUT);
   pinMode(DHTPIN, INPUT);
   pinMode(LDRPIN, INPUT);
+
+  pinMode(RELAYPIN, OUTPUT);
 
   Serial.begin(115200);
   delay(10);
@@ -234,7 +241,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
   message[length] = '\0';
   Serial.println(message);
 
-  if (!processJson(message)) {
+  if (!processJson(topic, message)) {
     return;
   }
 
@@ -250,6 +257,8 @@ void callback(char* topic, byte* payload, unsigned int length) {
     realBlue = 0;
   }
 
+  (relayOn) ? setRelay(HIGH) : setRelay(LOW);
+  
   startFade = true;
   inFade = false; // Kill the current fade
 
@@ -259,72 +268,84 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
 
 /********************************** START PROCESS JSON*****************************************/
-bool processJson(char* message) {
-  StaticJsonBuffer<BUFFER_SIZE> jsonBuffer;
+bool processJson(char* topic, char* message) {
 
-  JsonObject& root = jsonBuffer.parseObject(message);
+  String strTopic;
+  strTopic = String((char*)topic);
 
-  if (!root.success()) {
-    Serial.println("parseObject() failed");
-    return false;
-  }
-
-  if (root.containsKey("state")) {
-    if (strcmp(root["state"], on_cmd) == 0) {
-      stateOn = true;
+  if(strTopic == light_set_topic)
+  {
+    StaticJsonBuffer<BUFFER_SIZE> jsonBuffer;
+  
+    JsonObject& root = jsonBuffer.parseObject(message);
+  
+    if (!root.success()) {
+      Serial.println("parseObject() failed");
+      return false;
     }
-    else if (strcmp(root["state"], off_cmd) == 0) {
-      stateOn = false;
+    if (root.containsKey("state")) {
+      if (strcmp(root["state"], on_cmd) == 0) {
+        stateOn = true;
+      }
+      else if (strcmp(root["state"], off_cmd) == 0) {
+        stateOn = false;
+      }
+    }  
+    
+    // If "flash" is included, treat RGB and brightness differently
+    if (root.containsKey("flash")) {
+      flashLength = (int)root["flash"] * 1000;
+  
+      if (root.containsKey("brightness")) {
+        flashBrightness = root["brightness"];
+      }
+      else {
+        flashBrightness = brightness;
+      }
+  
+      if (root.containsKey("color")) {
+        flashRed = root["color"]["r"];
+        flashGreen = root["color"]["g"];
+        flashBlue = root["color"]["b"];
+      }
+      else {
+        flashRed = red;
+        flashGreen = green;
+        flashBlue = blue;
+      }
+  
+      flashRed = map(flashRed, 0, 255, 0, flashBrightness);
+      flashGreen = map(flashGreen, 0, 255, 0, flashBrightness);
+      flashBlue = map(flashBlue, 0, 255, 0, flashBrightness);
+  
+      flash = true;
+      startFlash = true;
     }
-  }
-
-  // If "flash" is included, treat RGB and brightness differently
-  if (root.containsKey("flash")) {
-    flashLength = (int)root["flash"] * 1000;
-
-    if (root.containsKey("brightness")) {
-      flashBrightness = root["brightness"];
+    else { // Not flashing
+      flash = false;
+  
+      if (root.containsKey("color")) {
+        red = root["color"]["r"];
+        green = root["color"]["g"];
+        blue = root["color"]["b"];
+      }
+  
+      if (root.containsKey("brightness")) {
+        brightness = root["brightness"];
+      }
+  
+      if (root.containsKey("transition")) {
+        transitionTime = root["transition"];
+      }
+      else {
+        transitionTime = 0;
+      }    
     }
-    else {
-      flashBrightness = brightness;
-    }
-
-    if (root.containsKey("color")) {
-      flashRed = root["color"]["r"];
-      flashGreen = root["color"]["g"];
-      flashBlue = root["color"]["b"];
-    }
-    else {
-      flashRed = red;
-      flashGreen = green;
-      flashBlue = blue;
-    }
-
-    flashRed = map(flashRed, 0, 255, 0, flashBrightness);
-    flashGreen = map(flashGreen, 0, 255, 0, flashBrightness);
-    flashBlue = map(flashBlue, 0, 255, 0, flashBrightness);
-
-    flash = true;
-    startFlash = true;
-  }
-  else { // Not flashing
-    flash = false;
-
-    if (root.containsKey("color")) {
-      red = root["color"]["r"];
-      green = root["color"]["g"];
-      blue = root["color"]["b"];
-    }
-
-    if (root.containsKey("brightness")) {
-      brightness = root["brightness"];
-    }
-
-    if (root.containsKey("transition")) {
-      transitionTime = root["transition"];
-    }
-    else {
-      transitionTime = 0;
+  } else if (strTopic == relay_set_topic) {
+    if (strcmp(message, on_cmd) == 0) {
+        relayOn = true;
+    } else if (strcmp(message, off_cmd) == 0) {
+      	relayOn = false;
     }
   }
 
@@ -353,12 +374,13 @@ void sendState() {
   root["temperature"] = (String)tempValue;
   root["heatIndex"] = (String)calculateHeatIndex(humValue, tempValue);
 
+  root["relay"] = (relayOn) ? on_cmd : off_cmd;
 
   char buffer[root.measureLength() + 1];
   root.printTo(buffer, sizeof(buffer));
 
   Serial.println(buffer);
-  client.publish(light_state_topic, buffer, true);
+  client.publish(sensor_state_topic, buffer, true);
 }
 
 
@@ -387,6 +409,19 @@ float calculateHeatIndex(float humidity, float temp) {
 }
 
 
+/********************************** START SET RELAY *****************************************/
+void setRelay(int OnOff) {
+  //Works in inverted mode... setting LOW turns relay ON, and viceversa.
+  if (OnOff==HIGH){
+    digitalWrite(RELAYPIN, LOW);
+    relayOn = true;
+  }
+  else{
+    digitalWrite(RELAYPIN, HIGH);
+    relayOn = false;
+  }
+}
+
 /********************************** START SET COLOR *****************************************/
 void setColor(int inR, int inG, int inB) {
   analogWrite(redPin, inR);
@@ -414,6 +449,7 @@ void reconnect() {
       Serial.println("connected");
       client.subscribe(light_set_topic);
       setColor(0, 0, 0);
+      client.subscribe(relay_set_topic);
       sendState();
     } else {
       Serial.print("failed, rc=");
@@ -474,9 +510,8 @@ void loop() {
     if (checkBoundSensor(newHumValue, humValue, diffHUM)) {
       humValue = newHumValue;
       sendState();
-    }
-
-
+    }   
+    
     int newLDR = analogRead(LDRPIN);
 
     if (checkBoundSensor(newLDR, LDR, diffLDR)) {
