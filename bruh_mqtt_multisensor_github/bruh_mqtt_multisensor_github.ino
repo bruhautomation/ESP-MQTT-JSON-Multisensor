@@ -79,6 +79,12 @@ const int bluePin = D3;
 
 
 
+/**************************** SENSOR CONFIGURATION *****************************************/
+#define PIR_ON_STRING "motion detected"
+#define PIR_OFF_STRING "standby"
+
+
+
 /**************************** SENSOR DEFINITIONS *******************************************/
 float ldrValue;
 int LDR;
@@ -433,13 +439,13 @@ void loop() {
     pirValue = digitalRead(PIRPIN); //read state of the
 
     if (pirValue == LOW && pirStatus != 1) {
-      motionStatus = "standby";
+      motionStatus = PIR_OFF_STRING;
       sendState();
       pirStatus = 1;
     }
 
     else if (pirValue == HIGH && pirStatus != 2) {
-      motionStatus = "motion detected";
+      motionStatus = PIR_ON_STRING;
       sendState();
       pirStatus = 2;
     }
