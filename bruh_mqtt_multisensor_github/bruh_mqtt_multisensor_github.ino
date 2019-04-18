@@ -40,7 +40,7 @@
 
 
 /************ TEMP SETTINGS (CHANGE THIS FOR YOUR SETUP) *******************************/
-#define IsFahrenheit false //to use celsius change to false
+#define IsFahrenheit true //to use celsius change to false
 
 /************ WIFI and MQTT INFORMATION (CHANGE THESE FOR YOUR SETUP) ******************/
 #define wifi_ssid "YourSSID" //type your WIFI information inside the quotes
