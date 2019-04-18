@@ -40,7 +40,7 @@
 
 
 /************ TEMP SETTINGS (CHANGE THIS FOR YOUR SETUP) *******************************/
-#define IsFahrenheit true //to use celsius change to false
+#define IsFahrenheit false //to use celsius change to false
 
 /************ WIFI and MQTT INFORMATION (CHANGE THESE FOR YOUR SETUP) ******************/
 #define wifi_ssid "YourSSID" //type your WIFI information inside the quotes
@@ -263,40 +263,42 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
 
 /********************************** START PROCESS JSON*****************************************/
-bool processJson(char* message) {
-  StaticJsonBuffer<BUFFER_SIZE> jsonBuffer;
+bool processJson(char* message) { 
+  StaticJsonDocument<1024> jsonBuffer;
+  DeserializationError error = deserializeJson(jsonBuffer, message);
 
-  JsonObject& root = jsonBuffer.parseObject(message);
-
-  if (!root.success()) {
-    Serial.println("parseObject() failed");
+  if (error) {
+    Serial.println("deserializeJson() failed");
     return false;
   }
 
-  if (root.containsKey("state")) {
-    if (strcmp(root["state"], on_cmd) == 0) {
+  JsonVariant jstate = jsonBuffer["state"];
+  if (!jstate.isNull()) {
+    if (strcmp(jstate.as<char*>(), on_cmd) == 0) {
       stateOn = true;
     }
-    else if (strcmp(root["state"], off_cmd) == 0) {
+    else if (strcmp(jstate.as<char*>(), off_cmd) == 0) {
       stateOn = false;
     }
   }
 
   // If "flash" is included, treat RGB and brightness differently
-  if (root.containsKey("flash")) {
-    flashLength = (int)root["flash"] * 1000;
+  JsonVariant jflash = jsonBuffer["flash"];
+  if (!jflash.isNull()) {
+    flashLength = jflash.as<int>() * 1000;
 
-    if (root.containsKey("brightness")) {
-      flashBrightness = root["brightness"];
+    JsonVariant jbrightness = jsonBuffer["brightness"];
+    if (!jbrightness.isNull()) {
+      flashBrightness = jbrightness.as<byte>();
     }
     else {
       flashBrightness = brightness;
     }
 
-    if (root.containsKey("color")) {
-      flashRed = root["color"]["r"];
-      flashGreen = root["color"]["g"];
-      flashBlue = root["color"]["b"];
+    if (jsonBuffer.containsKey("color")) {
+      flashRed = jsonBuffer["color"]["r"];
+      flashGreen = jsonBuffer["color"]["g"];
+      flashBlue = jsonBuffer["color"]["b"];
     }
     else {
       flashRed = red;
@@ -314,18 +316,20 @@ bool processJson(char* message) {
   else { // Not flashing
     flash = false;
 
-    if (root.containsKey("color")) {
-      red = root["color"]["r"];
-      green = root["color"]["g"];
-      blue = root["color"]["b"];
+    if (jsonBuffer.containsKey("color")) {
+      red = jsonBuffer["color"]["r"];
+      green = jsonBuffer["color"]["g"];
+      blue = jsonBuffer["color"]["b"];
     }
 
-    if (root.containsKey("brightness")) {
-      brightness = root["brightness"];
+    JsonVariant jbrightness = jsonBuffer["brightness"];
+    if (!jbrightness.isNull()) {
+      brightness = jbrightness.as<byte>();
     }
 
-    if (root.containsKey("transition")) {
-      transitionTime = root["transition"];
+    JsonVariant jtransition = jsonBuffer["transition"];
+    if (!jtransition.isNull()) {
+      transitionTime = jtransition.as<byte>();
     }
     else {
       transitionTime = 0;
@@ -339,27 +343,23 @@ bool processJson(char* message) {
 
 /********************************** START SEND STATE*****************************************/
 void sendState() {
-  StaticJsonBuffer<BUFFER_SIZE> jsonBuffer;
+  StaticJsonDocument<BUFFER_SIZE> jsonBuffer;
 
-  JsonObject& root = jsonBuffer.createObject();
-
-  root["state"] = (stateOn) ? on_cmd : off_cmd;
-  JsonObject& color = root.createNestedObject("color");
-  color["r"] = red;
-  color["g"] = green;
-  color["b"] = blue;
+  jsonBuffer["state"] = (stateOn) ? on_cmd : off_cmd;
+  jsonBuffer["color"]["r"] = red;
+  jsonBuffer["color"]["g"] = green;
+  jsonBuffer["color"]["b"] = blue;
 
 
-  root["brightness"] = brightness;
-  root["humidity"] = (String)humValue;
-  root["motion"] = (String)motionStatus;
-  root["ldr"] = (String)LDR;
-  root["temperature"] = (String)tempValue;
-  root["heatIndex"] = (String)dht.computeHeatIndex(tempValue, humValue, IsFahrenheit);
+  jsonBuffer["brightness"] = brightness;
+  jsonBuffer["humidity"] = (String)humValue;
+  jsonBuffer["motion"] = (String)motionStatus;
+  jsonBuffer["ldr"] = (String)LDR;
+  jsonBuffer["temperature"] = (String)tempValue;
+  jsonBuffer["heatIndex"] = (String)dht.computeHeatIndex(tempValue, humValue, IsFahrenheit);
 
-
-  char buffer[root.measureLength() + 1];
-  root.printTo(buffer, sizeof(buffer));
+  char* buffer;
+  serializeJson(jsonBuffer, buffer, measureJson(jsonBuffer));
 
   Serial.println(buffer);
   client.publish(light_state_topic, buffer, true);
