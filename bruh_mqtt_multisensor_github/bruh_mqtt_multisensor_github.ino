@@ -5,9 +5,7 @@
   |   _  <  |      /  |  |  |  | |   __   |      /  /_\  \  |  |  |  |     |  |     |  |  |  | |  |\/|  |   /  /_\  \    |  |     |  | |  |  |  | |  . `  |
   |  |_)  | |  |\  \-.|  `--'  | |  |  |  |     /  _____  \ |  `--'  |     |  |     |  `--'  | |  |  |  |  /  _____  \   |  |     |  | |  `--'  | |  |\   |
   |______/  | _| `.__| \______/  |__|  |__|    /__/     \__\ \______/      |__|      \______/  |__|  |__| /__/     \__\  |__|     |__|  \______/  |__| \__|
-
   Thanks much to @corbanmailloux for providing a great framework for implementing flash/fade with HomeAssistant https://github.com/corbanmailloux/esp-mqtt-rgb-led
-
   To use this code you will need the following dependancies: 
   
   - Support for the ESP8266 boards. 
@@ -19,12 +17,16 @@
       - Adafruit unified sensor
       - PubSubClient
       - ArduinoJSON
-	  
+    
   UPDATE 16 MAY 2017 by Knutella - Fixed MQTT disconnects when wifi drops by moving around Reconnect and adding a software reset of MCU
-	           
+             
   UPDATE 23 MAY 2017 - The MQTT_MAX_PACKET_SIZE parameter may not be setting appropriately due to a bug in the PubSub library. If the MQTT messages are not being transmitted as expected you may need to change the MQTT_MAX_PACKET_SIZE parameter in "PubSubClient.h" directly.
   
   UPDATE 27 NOV 2017 - Changed HeatIndex to built in function of DHT library. Added definition for fahrenheit or celsius
+ 
+  UPDATE 20 APR 2019 - Removed the need for hardcoded network credentials by using the WifiManager library. On first boot the nodemcu will create an access point which you can connect to for configuration. If every the nodemcu can't connect to the last known wifi network it will go into AP mode again.
+  
+  UPDATE 20 APR 2019 - Fixed LED flash as 'flash' is no longer a seperate attribute in homeassistant, it's now within the effects list
 
 */
 
@@ -38,23 +40,25 @@
 #include <ArduinoOTA.h>
 #include <ArduinoJson.h>
 
+#include <DNSServer.h>            //Local DNS Server used for redirecting all requests to the configuration portal
+#include <ESP8266WebServer.h>     //Local WebServer used to serve the configuration portal
+#include <WiFiManager.h>          //https://github.com/tzapu/WiFiManager WiFi Configuration Magic
+
 
 /************ TEMP SETTINGS (CHANGE THIS FOR YOUR SETUP) *******************************/
-#define IsFahrenheit true //to use celsius change to false
+#define IsFahrenheit false //to use celsius change to false
 
 /************ WIFI and MQTT INFORMATION (CHANGE THESE FOR YOUR SETUP) ******************/
-#define wifi_ssid "YourSSID" //type your WIFI information inside the quotes
-#define wifi_password "YourWIFIpassword"
-#define mqtt_server "your.mqtt.server.ip"
-#define mqtt_user "yourMQTTusername" 
-#define mqtt_password "yourMQTTpassword"
+#define mqtt_server "MQTTSERVERIP"
+#define mqtt_user "MQTTUSER" 
+#define mqtt_password "MQTTPASSWORD"
 #define mqtt_port 1883
 
 
 
 /************* MQTT TOPICS (change these topics as you wish)  **************************/
-#define light_state_topic "bruh/sensornode1"
-#define light_set_topic "bruh/sensornode1/set"
+#define light_state_topic "home/bedroom/sensornode/bedroomMultiSensor"
+#define light_set_topic "home/bedroom/sensornode/bedroomMultiSensor/set"
 
 const char* on_cmd = "ON";
 const char* off_cmd = "OFF";
@@ -62,8 +66,8 @@ const char* off_cmd = "OFF";
 
 
 /**************************** FOR OTA **************************************************/
-#define SENSORNAME "sensornode1"
-#define OTApassword "YouPassword" // change this to whatever password you want to use when you upload OTA
+#define SENSORNAME "bedroomMultiSensor"
+#define OTApassword "PASSWORD" // change this to whatever password you want to use when you upload OTA
 int OTAport = 8266;
 
 
@@ -83,7 +87,7 @@ const int bluePin = D3;
 float ldrValue;
 int LDR;
 float calcLDR;
-float diffLDR = 25;
+float diffLDR = 10;
 
 float diffTEMP = 0.2;
 float tempValue;
@@ -97,7 +101,7 @@ String motionStatus;
 
 char message_buff[100];
 
-int calibrationTime = 0;
+int calibrationTime = 5;
 
 const int BUFFER_SIZE = 300;
 
@@ -132,6 +136,8 @@ byte flashRed = red;
 byte flashGreen = green;
 byte flashBlue = blue;
 byte flashBrightness = brightness;
+
+int defaultFlashLength = 2;
 
 
 
@@ -168,7 +174,9 @@ void setup() {
   Serial.println("Starting Node named " + String(SENSORNAME));
 
 
-  setup_wifi();
+  WiFiManager wifiManager;
+  wifiManager.setAPCallback(configModeCallback);
+  wifiManager.autoConnect(SENSORNAME, "ACCESSPOINTPASSWORD");
 
   client.setServer(mqtt_server, mqtt_port);
   client.setCallback(callback);
@@ -193,34 +201,15 @@ void setup() {
   });
   ArduinoOTA.begin();
   Serial.println("Ready");
-  Serial.print("IPess: ");
-  Serial.println(WiFi.localIP());
   reconnect();
 }
 
 
-
-
-/********************************** START SETUP WIFI*****************************************/
-void setup_wifi() {
-
-  delay(10);
-  Serial.println();
-  Serial.print("Connecting to ");
-  Serial.println(wifi_ssid);
-
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(wifi_ssid, wifi_password);
-
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-
-  Serial.println("");
-  Serial.println("WiFi connected");
-  Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());
+/********************************** WIFI MANAGER CALLBACK ****************************************/
+void configModeCallback (WiFiManager *myWiFiManager) {
+  Serial.println("Entered config mode");
+  Serial.println(WiFi.softAPIP());
+  Serial.println(myWiFiManager->getConfigPortalSSID());
 }
 
 
@@ -283,8 +272,15 @@ bool processJson(char* message) {
   }
 
   // If "flash" is included, treat RGB and brightness differently
-  if (root.containsKey("flash")) {
-    flashLength = (int)root["flash"] * 1000;
+  if (root.containsKey("flash") ||
+       (root.containsKey("effect") && strcmp(root["effect"], "flash") == 0)) {
+
+    if (root.containsKey("flash")) {
+      flashLength = (int)root["flash"] * 1000;
+    }
+    else {
+      flashLength = defaultFlashLength * 1000;
+    }
 
     if (root.containsKey("brightness")) {
       flashBrightness = root["brightness"];
@@ -540,7 +536,6 @@ void loop() {
 /**************************** START TRANSITION FADER *****************************************/
 // From https://www.arduino.cc/en/Tutorial/ColorCrossfader
 /* BELOW THIS LINE IS THE MATH -- YOU SHOULDN'T NEED TO CHANGE THIS FOR THE BASICS
-
   The program works like this:
   Imagine a crossfade that moves the red LED from 0-10,
     the green from 0-5, and the blue from 10 to 7, in
@@ -549,18 +544,14 @@ void loop() {
     decrease color values in evenly stepped increments.
     Imagine a + indicates raising a value by 1, and a -
     equals lowering it. Our 10 step fade would look like:
-
     1 2 3 4 5 6 7 8 9 10
   R + + + + + + + + + +
   G   +   +   +   +   +
   B     -     -     -
-
   The red rises from 0 to 10 in ten steps, the green from
   0-5 in 5 steps, and the blue falls from 10 to 7 in three steps.
-
   In the real program, the color percentages are converted to
   0-255 values, and there are 1020 steps (255*4).
-
   To figure out how big a step there should be between one up- or
   down-tick of one of the LED values, we call calculateStep(),
   which calculates the absolute gap between the start and end values,
