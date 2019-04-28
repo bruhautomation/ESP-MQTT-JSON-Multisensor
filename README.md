@@ -9,7 +9,7 @@ This project is based on the Multisensor project by bruhAutomation
 - **photoresistor** or **TEMT600** light sensor
 - **RGB led** with support for color, flash, fade, and transition
 - **Over-the-Air (OTA)** upload from the ArudioIDE
-- **Wifi confog access point**
+- **Wifi configuration** using a temporary access point
 
 
 
