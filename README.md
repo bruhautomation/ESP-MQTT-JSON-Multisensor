@@ -5,8 +5,12 @@ https://github.com/bruhautomation/ESP-MQTT-JSON-
 
 
 ### Updates
-- Fixed **flash** to work with the latest version of home assistant
-- Implemented **WifiManager library** to set WiFi and MQTT settings using an **access point**, removing hardcoded values
+- **Fixed flash** to work with the latest version of home assistant
+- **Implemented WifiManager library** to set WiFi and MQTT settings using an **access point**, removing hardcoded values
+
+## To do
+- **Update code for Arduinojson6
+
 
 ### Supported Features Include
 - **DHT22** temperature sensor
