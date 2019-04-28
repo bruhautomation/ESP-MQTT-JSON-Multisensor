@@ -1,12 +1,6 @@
 # ESP MQTT JSON Multisensor
 
-This project shows a super easy way to get started with your own DIY Multisensor to use with [Home Assistant](https://home-assistant.io/), a sick, open-source Home Automation platform that can do just about anything. 
-
-Bonus, this project requires **no soldering** and **no breadboards** - just header wires and the development board! 
-
-Video Tutorial - https://youtu.be/jpjfVc-9IrQ
-
-The code covered in this repository utilizies Home Assistant's [MQTT JSON Light Component](https://home-assistant.io/components/light.mqtt_json/), [MQTT Sensor Component](https://home-assistant.io/components/sensor.mqtt/), and a [NodeMCU ESP8266](http://geni.us/cpmi) development board. 
+This project is based on the Multisensor project by bruhAutomation
 
 ### Supported Features Include
 - **DHT22** temperature sensor
@@ -14,7 +8,9 @@ The code covered in this repository utilizies Home Assistant's [MQTT JSON Light 
 - **AM312** PIR motion sensor 
 - **photoresistor** or **TEMT600** light sensor
 - **RGB led** with support for color, flash, fade, and transition
-- **Over-the-Air (OTA)** upload from the ArduinoIDE
+- **Over-the-Air (OTA)** upload from the ArudioIDE
+- **Wifi confog access point**
+
 
 
 #### OTA Uploading
