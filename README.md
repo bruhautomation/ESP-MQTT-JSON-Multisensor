@@ -9,7 +9,7 @@ https://github.com/bruhautomation/ESP-MQTT-JSON-
 - **Implemented WifiManager library** to set WiFi and MQTT settings using an **access point**, removing hardcoded values
 
 ## To do
-- **Update code for ArduinoJson6
+- Update code to support **ArduinoJson6**
 
 
 ### Supported Features Include
