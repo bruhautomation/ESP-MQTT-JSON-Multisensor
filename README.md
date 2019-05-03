@@ -1,7 +1,7 @@
 # ESP MQTT JSON Multisensor
 
 This project is based on the Multisensor project by bruhAutomation
-https://github.com/bruhautomation/ESP-MQTT-JSON-
+https://github.com/bruhautomation/ESP-MQTT-JSON-Multisensor
 
 
 ### Updates
