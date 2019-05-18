@@ -35,32 +35,3 @@ This code also supports remote uploading to the ESP8266 using Arduino's OTA libr
 
 ### Wiring Diagram
 ![alt text](https://github.com/bruhautomation/ESP-MQTT-JSON-Multisensor/blob/master/wiring_diagram_v2.png?raw=true "Wiring Diagram")
-
-
-### Home Assistant Service Examples
-Besides using the card in Home Assistant's user interface, you can also use the Services tool to control the light using the light.turn_on and light.turn_off services. This will let you play with the parameters you can call later in automations or scripts. 
-
-Fade the Light On Over 5 Seconds - light.turn_on
-```
-{"entity_id":"light.sn1_led",
-"brightness":150,
-"color_name":"blue",
-"transition":"5"
-}
-```
-
-Flash The Light - light.turn_on
-```
-{"entity_id":"light.sn1_led",
-"color_name":"green",
-"brightness":255,
-"flash":"short"
-}
-```
-
-Fade the Light Off Over 5 Seconds - light.turn_off
-```
-{"entity_id":"light.sn1_led",
-"transition":"5"
-}
-```
