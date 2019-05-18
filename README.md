@@ -4,12 +4,10 @@ This project is based on the Multisensor project by bruhAutomation
 https://github.com/bruhautomation/ESP-MQTT-JSON-Multisensor
 
 
-### Updates
-- **Fixed flash** to work with the latest version of home assistant
+### Upgrades
+- **Removed LED** and associated code (Served limited purpose)
+- **ArduinoJson6** compatible code
 - **Implemented WifiManager library** to set WiFi and MQTT settings using an **access point**, removing hardcoded values
-
-## To do
-- Update code to support **ArduinoJson6**
 
 
 ### Supported Features Include
