@@ -9,8 +9,6 @@
 
   UPDATE 20 APR 2019 - Removed the need for hardcoded network credentials by using the WifiManager library. On first boot the nodemcu will create an access point which you can connect to for configuration. If every the nodemcu can't connect to the last known wifi network it will go into AP mode again.
 
-  UPDATE 20 APR 2019 - Fixed LED flash as 'flash' is no longer a seperate attribute in homeassistant, it's now within the effects list
-
   UPDATE 21 APR 2019 - Added MQTT settings as custom parameters (Excl. port) which can be set when the device is in AP mode
 
   UPDATE 18 MAY 2019 - Removed LED and associated code, serves limited use
