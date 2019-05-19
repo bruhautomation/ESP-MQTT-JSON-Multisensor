@@ -16,8 +16,6 @@
   UPDATE 18 MAY 2019 - Removed LED and associated code, serves limited use
 
   UPDATE 18 MAY 2019 - Upgraded code to support ArduinoJson 6
-  
-  UPDATE 19 MAY 2019 - General code optimisation
 
   REQUIRED LIBRARIES
   ------------------
@@ -61,8 +59,8 @@ char mqtt_password[40];
 #define multisensor_set_topic "sensornodes/bedroomMultiSensor/set"
 
 /************ FOR SETTINGS ************/
-#define SENSORNAME "SENSOR_NAME"
-#define OTApassword "OTA_PASSWORD" // change this to whatever password you want to use when you upload OTA
+#define SENSORNAME "bedroomMultiSensor"
+#define OTApassword "OTA_PASSWORD!" // change this to whatever password you want to use when you upload OTA
 int OTAport = 8266;
 
 /************ PIN DEFINITIONS ************/
@@ -88,6 +86,9 @@ float tempValue;
 float diffHUM = 1;
 float humValue;
 
+#define PIR_ON_STRING "motion_detected"
+#define PIR_OFF_STRING "standby"
+
 int pirValue;
 int pirStatus;
 String motionStatus;
@@ -109,7 +110,7 @@ void setup() {
   pinMode(LDRPIN, INPUT);
 
   Serial.begin(115200);
-  delay(10000);//Time to get serial monitor open....
+  delay(10000);
 
   Serial.print("Mounting file system");
 
@@ -174,8 +175,8 @@ void setup() {
 
   wifiManager.setDebugOutput(false);
 
-  if (!wifiManager.autoConnect(SENSORNAME, "SENSOR_AP_MODE_PASSWORD")) {
-    Serial.println("Failed to: connect to known access point / Start AP mode..........resetting board");
+  if (!wifiManager.autoConnect(SENSORNAME, "AP_MODE_PASSWORD")) {
+    Serial.println("Failed to: connect to known access point / Start AP mode, resetting board");
     software_Reset();
   }
 
@@ -251,6 +252,7 @@ void saveConfigCallback () {
 }
 
 
+
 /************ WIFI MANAGER CALLBACK ************/
 void configModeCallback (WiFiManager *myWiFiManager) {
   Serial.println("Device has entered configuration mode..........connect to the AP point to complete set-up");
@@ -259,12 +261,13 @@ void configModeCallback (WiFiManager *myWiFiManager) {
 }
 
 
+
 /************ MQTT NEW MESSAGE CALLBACK ************/
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
   Serial.print("Message arrived [");
   Serial.print(topic);
   Serial.println("] ");
-  
+
   char message[length + 1];
   for (int i = 0; i < length; i++) {
     message[i] = (char)payload[i];
@@ -275,6 +278,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   if (!processJson(message)) {
     return;
   }
+
   sendState();
 }
 
@@ -282,18 +286,22 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
 /************ PROCESS JSON ************/
 bool processJson(char* message) {
   StaticJsonDocument<BUFFER_SIZE> doc;
+
   DeserializationError error = deserializeJson(doc, message);
   if (error) {
     Serial.println("Failed to deserialize message");
     return false;
   }
+
   return true;
 }
+
 
 
 /************ SEND CURRENT STATES ************/
 void sendState() {
   StaticJsonDocument<BUFFER_SIZE> doc;
+
   doc["humidity"] = (String)humValue;
   doc["motion"] = (String)motionStatus;
   doc["ldr"] = (String)LDR;
@@ -332,14 +340,16 @@ void reconnect() {
 }
 
 
+
 /************ START CHECK SENSOR ************/
 bool checkBoundSensor(float newValue, float prevValue, float maxDiff) {
   return newValue < prevValue - maxDiff || newValue > prevValue + maxDiff;
 }
 
-
+int lp = 0;
 /************ MAIN LOOP ************/
 void loop() {
+
   ArduinoOTA.handle();
 
   if (!client.connected()) {
@@ -355,13 +365,13 @@ void loop() {
   pirValue = digitalRead(PIRPIN); //read state of the
 
   if (pirValue == LOW && pirStatus != 1) {
-    motionStatus = "standby";
+    motionStatus = PIR_OFF_STRING;
     sendState();
     pirStatus = 1;
   }
 
   else if (pirValue == HIGH && pirStatus != 2) {
-    motionStatus = "motion detected";
+    motionStatus = PIR_ON_STRING;
     sendState();
     pirStatus = 2;
   }
@@ -378,12 +388,14 @@ void loop() {
     sendState();
   }
 
+
   int newLDR = analogRead(LDRPIN);
 
   if (checkBoundSensor(newLDR, LDR, diffLDR)) {
     LDR = newLDR;
     sendState();
   }
+
 }
 
 
