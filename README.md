@@ -14,7 +14,7 @@ https://github.com/bruhautomation/ESP-MQTT-JSON-Multisensor
 - **DHT22** temperature sensor
 - **DHT22** humidity sensor
 - **AM312** PIR motion sensor 
-- **photoresistor** or **TEMT600** light sensor
+- **Photoresistor** or **TEMT600** light sensor
 - **RGB led** with support for color, flash, fade, and transition
 - **Over-the-Air (OTA)** upload from the ArudioIDE
 - **Wifi configuration** using a temporary access point
