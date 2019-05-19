@@ -9,11 +9,15 @@
 
   UPDATE 20 APR 2019 - Removed the need for hardcoded network credentials by using the WifiManager library. On first boot the nodemcu will create an access point which you can connect to for configuration. If every the nodemcu can't connect to the last known wifi network it will go into AP mode again.
 
+  UPDATE 20 APR 2019 - Fixed LED flash as 'flash' is no longer a seperate attribute in homeassistant, it's now within the effects list
+
   UPDATE 21 APR 2019 - Added MQTT settings as custom parameters (Excl. port) which can be set when the device is in AP mode
 
   UPDATE 18 MAY 2019 - Removed LED and associated code, serves limited use
 
   UPDATE 18 MAY 2019 - Upgraded code to support ArduinoJson 6
+  
+  UPDATE 19 MAY 2019 - General code optimisation
 
   REQUIRED LIBRARIES
   ------------------
@@ -46,38 +50,33 @@
 
 
 
-//flag for saving data
-bool shouldSaveConfig = false;
-
-/************ WIFI and MQTT INFORMATION (CHANGE THESE FOR YOUR SETUP) ******************/
+/************ MQTT VARIABLES ************/
 char mqtt_server[40];
 char mqtt_user[40];
 char mqtt_password[40];
 #define mqtt_port 1883
 
-/************* MQTT TOPICS (change these topics as you wish)  **************************/
-#define light_state_topic "home/sensornode/bedroomMultiSensor"
-#define light_set_topic "home/sensornode/bedroomMultiSensor/set"
+/************ MQTT TOPICS ************/
+#define multisensor_state_topic "sensornodes/bedroomMultiSensor"
+#define multisensor_set_topic "sensornodes/bedroomMultiSensor/set"
 
-
-/************ TEMP SETTINGS (CHANGE THIS FOR YOUR SETUP) *******************************/
-#define IsFahrenheit false //to use celsius change to false
-
-
-/**************************** FOR OTA **************************************************/
-#define SENSORNAME "MultiSensor_1"
-#define OTApassword "SENOR_OTA_PASSWORD" // change this to whatever password you want to use when you upload OTA
+/************ FOR SETTINGS ************/
+#define SENSORNAME "SENSOR_NAME"
+#define OTApassword "OTA_PASSWORD" // change this to whatever password you want to use when you upload OTA
 int OTAport = 8266;
 
-/**************************** PIN DEFINITIONS ********************************************/
+/************ PIN DEFINITIONS ************/
 #define PIRPIN    D5
 #define DHTPIN    D7
 #define DHTTYPE   DHT22
 #define LDRPIN    A0
 
+/************ SENSOR VARIABLES ************/
+int calibrationTime = 5;
+bool shouldSaveConfig = false;
 
+#define IsFahrenheit true //to use celsius change to false
 
-/**************************** SENSOR DEFINITIONS *******************************************/
 float ldrValue;
 int LDR;
 float calcLDR;
@@ -94,69 +93,69 @@ int pirStatus;
 String motionStatus;
 
 char message_buff[100];
-
-int calibrationTime = 5;
-
 const int BUFFER_SIZE = 300;
-
 #define MQTT_MAX_PACKET_SIZE 512
 
 WiFiClient espClient;
 PubSubClient client(espClient);
 DHT dht(DHTPIN, DHTTYPE);
 
-//callback notifying us of the need to save config
-void saveConfigCallback () {
-  Serial.println("Should save config");
-  shouldSaveConfig = true;
-}
 
-/********************************** START SETUP*****************************************/
+/************ SETUP ************/
 void setup() {
-
-  Serial.begin(115200);
 
   pinMode(PIRPIN, INPUT);
   pinMode(DHTPIN, INPUT);
   pinMode(LDRPIN, INPUT);
 
   Serial.begin(115200);
-  delay(5);
+  delay(10000);//Time to get serial monitor open....
 
-  //read configuration from FS json
-  Serial.println("Mounting file system...");
+  Serial.print("Mounting file system");
 
   if (SPIFFS.begin()) {
-    Serial.println("file system successfully mounted");
+    Serial.println("..........file system mounted successfully");
+    Serial.print("Searching for existing configuration file");
     if (SPIFFS.exists("/config.json")) {
-      //file exists, reading and loading
-      Serial.println("\nReading config file...");
+      Serial.println("..........file found");
+      Serial.print("Opening configuration file");
       File configFile = SPIFFS.open("/config.json", "r");
       if (configFile) {
-        Serial.println("config file opened successfully");
+        Serial.println("..........file opened successfully");
+        Serial.print("Reading configuration file");
         size_t size = configFile.size();
         // Allocate a buffer to store contents of the file.
         std::unique_ptr<char[]> buf(new char[size]);
-
         configFile.readBytes(buf.get(), size);
         DynamicJsonDocument doc(1024);
         DeserializationError error = deserializeJson(doc, buf.get());
-        serializeJson(doc, Serial);
         if (error) {
-          Serial.println("\nFailed to load json config with error:");
+          Serial.print("..........failed to read file with error code: ");
           Serial.println(error.c_str());
+          Serial.println("Starting access point");
         } else {
-          Serial.println("\nJSON parsed successfully");
+          Serial.println("..........file read successfully");
+          Serial.print("File contents: ");
+          serializeJson(doc, Serial);
+          Serial.println();
           strcpy(mqtt_server, doc["mqtt_server"]);
           strcpy(mqtt_user, doc["mqtt_user"]);
           strcpy(mqtt_password, doc["mqtt_password"]);
         }
+      } else {
+        Serial.println("..........failed to open file");
+        Serial.println("Starting access point");
+
       }
+    } else {
+      Serial.println("..........file not found");
+      Serial.println("Starting access point");
     }
   } else {
-    Serial.println("\nFailed to mount FS");
+    Serial.println("..........failed to mount file system");
+    Serial.println("Starting access point");
   }
-  //end read
+
 
   WiFiManagerParameter custom_mqtt_server("server", "mqtt server", mqtt_server, 40);
   WiFiManagerParameter custom_mqtt_user("user", "mqtt user", mqtt_user, 40);
@@ -173,7 +172,12 @@ void setup() {
 
   wifiManager.setAPCallback(configModeCallback);
 
-  wifiManager.autoConnect(SENSORNAME, "SENSOR_AP_PASSWORD");
+  wifiManager.setDebugOutput(false);
+
+  if (!wifiManager.autoConnect(SENSORNAME, "SENSOR_AP_MODE_PASSWORD")) {
+    Serial.println("Failed to: connect to known access point / Start AP mode..........resetting board");
+    software_Reset();
+  }
 
   strcpy(mqtt_server, custom_mqtt_server.getValue());
   strcpy(mqtt_user, custom_mqtt_user.getValue());
@@ -181,71 +185,86 @@ void setup() {
 
   //save the custom parameters to FS
   if (shouldSaveConfig) {
-    Serial.println("\nSaving config...");
-    DynamicJsonDocument doc(1024);
-    doc["mqtt_server"] = mqtt_server;
-    doc["mqtt_user"] = mqtt_user;
-    doc["mqtt_password"] = mqtt_password;
-    Serial.println("\nconfig saves successfully...");
-
     File configFile = SPIFFS.open("/config.json", "w");
     if (!configFile) {
-      Serial.println("\nFailed to open config file for writing");
+      Serial.println("..........failed to open configuration file for writing");
+    } else {
+      DynamicJsonDocument doc(1024);
+      doc["mqtt_server"] = mqtt_server;
+      doc["mqtt_user"] = mqtt_user;
+      doc["mqtt_password"] = mqtt_password;
+      serializeJson(doc, configFile);
+      Serial.println("..........configuration saved successfully");
+      configFile.close();
     }
-
-    serializeJson(doc, Serial);
-    serializeJson(doc, configFile);
-    configFile.close();
-    //end save
   }
 
   client.setServer(mqtt_server, mqtt_port);
-  client.setCallback(callback);
+  client.setCallback(mqttCallback);
 
+  Serial.print("Initialising OTA server settings");
   ArduinoOTA.setPort(OTAport);
   ArduinoOTA.setHostname(SENSORNAME);
   ArduinoOTA.setPassword((const char *)OTApassword);
 
   ArduinoOTA.onStart([]() {
-    Serial.println("\nOTA server starting");
+    Serial.println("OTA server starting");
   });
   ArduinoOTA.onEnd([]() {
-    Serial.println("\nOTA server ended");
+    Serial.println("OTA server ended");
   });
   ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+    Serial.printf("Upload Progress: %u%%\r", (progress / (total / 100)));
   });
   ArduinoOTA.onError([](ota_error_t error) {
     Serial.printf("Error[%u]: ", error);
-    if (error == OTA_AUTH_ERROR) Serial.println("\nOTA Auth Failed");
-    else if (error == OTA_BEGIN_ERROR) Serial.println("\nOTA Begin Failed");
-    else if (error == OTA_CONNECT_ERROR) Serial.println("\nOTA Connect Failed");
-    else if (error == OTA_RECEIVE_ERROR) Serial.println("\nOTA Receive Failed");
-    else if (error == OTA_END_ERROR) Serial.println("\nOTA End Failed");
+    if (error == OTA_AUTH_ERROR) Serial.println("OTA Auth Failed");
+    else if (error == OTA_BEGIN_ERROR) Serial.println("OTA Begin Failed");
+    else if (error == OTA_CONNECT_ERROR) Serial.println("OTA Connect Failed");
+    else if (error == OTA_RECEIVE_ERROR) Serial.println("OTA Receive Failed");
+    else if (error == OTA_END_ERROR) Serial.println("OTA End Failed");
   });
-  ArduinoOTA.begin();
-  Serial.println("\nOTA server ready");
 
-  Serial.println("\nStarting multisensor node:" + String(SENSORNAME));
+  ArduinoOTA.begin();
+  Serial.println("..........initialised successfully");
+
+  Serial.println("Set-up Finished..........");
+
+  Serial.println();
+  Serial.println();
+  Serial.println("#########################################");
+  Serial.println("Sensor Name: " + String(SENSORNAME));
+  Serial.print("Device local ip: ");
+  Serial.println(WiFi.localIP());
+  Serial.println("#########################################");
+  Serial.println();
+  Serial.println();
+
   reconnect();
 }
 
 
-/********************************** WIFI MANAGER CALLBACK ****************************************/
+/************ CONFIG SAVE CALLBACK ************/
+void saveConfigCallback () {
+  Serial.print("Configuration needs saving");
+  shouldSaveConfig = true;
+}
+
+
+/************ WIFI MANAGER CALLBACK ************/
 void configModeCallback (WiFiManager *myWiFiManager) {
-  Serial.println("\nEntered config mode");
+  Serial.println("Device has entered configuration mode..........connect to the AP point to complete set-up");
   Serial.println(WiFi.softAPIP());
   Serial.println(myWiFiManager->getConfigPortalSSID());
 }
 
 
-
-/********************************** START CALLBACK*****************************************/
-void callback(char* topic, byte* payload, unsigned int length) {
+/************ MQTT NEW MESSAGE CALLBACK ************/
+void mqttCallback(char* topic, byte* payload, unsigned int length) {
   Serial.print("Message arrived [");
   Serial.print(topic);
-  Serial.print("] ");
-
+  Serial.println("] ");
+  
   char message[length + 1];
   for (int i = 0; i < length; i++) {
     message[i] = (char)payload[i];
@@ -256,31 +275,25 @@ void callback(char* topic, byte* payload, unsigned int length) {
   if (!processJson(message)) {
     return;
   }
-
   sendState();
 }
 
 
-
-/********************************** START PROCESS JSON*****************************************/
+/************ PROCESS JSON ************/
 bool processJson(char* message) {
   StaticJsonDocument<BUFFER_SIZE> doc;
-
   DeserializationError error = deserializeJson(doc, message);
   if (error) {
-    Serial.println("parseObject() failed");
+    Serial.println("Failed to deserialize message");
     return false;
   }
-
   return true;
 }
 
 
-
-/********************************** START SEND STATE*****************************************/
+/************ SEND CURRENT STATES ************/
 void sendState() {
   StaticJsonDocument<BUFFER_SIZE> doc;
-
   doc["humidity"] = (String)humValue;
   doc["motion"] = (String)motionStatus;
   doc["ldr"] = (String)LDR;
@@ -291,47 +304,48 @@ void sendState() {
   size_t buffSize = measureJson(doc) + 1;
   serializeJson(doc, buffer, buffSize);
 
+  Serial.print("OUTBOUND MESSAGE -->: ");
   Serial.println(buffer);
-  client.publish(light_state_topic, buffer, true);
+  client.publish(multisensor_state_topic, buffer, true);
 }
 
 
-/********************************** START RECONNECT*****************************************/
+/************ RECONNECT ************/
 void reconnect() {
-  // Loop until we're reconnected
   while (!client.connected()) {
-    Serial.print("Attempting MQTT connection...");
-    // Attempt to connect
+    Serial.print("Attempting to connect to MQTT server");
     if (client.connect(SENSORNAME, mqtt_user, mqtt_password)) {
-      Serial.println("Connected to MQTT server");
-      client.subscribe(light_set_topic);
+      Serial.println("..........connected successfully");
+      client.subscribe(multisensor_set_topic);
       sendState();
     } else {
-      Serial.print("\nMQTT connection failed (Error code:");
-      Serial.print(client.state());
-      Serial.println(") - Trying again in 5 seconds...\n");
-      delay(5000);
+      Serial.println("connection failed with error code: " + client.state());
+      Serial.print("Retrying in 5 seconds");
+      int reconDelay = 0;
+      while (reconDelay < 5) {
+        Serial.print("..");
+        reconDelay++;
+      }
+      Serial.print("retrying now");
     }
   }
 }
 
 
-
-/********************************** START CHECK SENSOR **********************************/
+/************ START CHECK SENSOR ************/
 bool checkBoundSensor(float newValue, float prevValue, float maxDiff) {
   return newValue < prevValue - maxDiff || newValue > prevValue + maxDiff;
 }
 
 
-/********************************** START MAIN LOOP***************************************/
+/************ MAIN LOOP ************/
 void loop() {
-
   ArduinoOTA.handle();
 
   if (!client.connected()) {
-    // reconnect();
     software_Reset();
   }
+
   client.loop();
 
   float newTempValue = dht.readTemperature(IsFahrenheit);
@@ -364,7 +378,6 @@ void loop() {
     sendState();
   }
 
-
   int newLDR = analogRead(LDRPIN);
 
   if (checkBoundSensor(newLDR, LDR, diffLDR)) {
@@ -374,9 +387,10 @@ void loop() {
 }
 
 
-/****reset***/
+/************ RESET ESP ************/
 void software_Reset() // Restarts program from beginning but does not reset the peripherals and registers
 {
-  Serial.print("resetting");
+  Serial.println("..........resetting");
+  delay(2000);
   ESP.reset();
 }
