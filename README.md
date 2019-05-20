@@ -21,7 +21,7 @@ https://github.com/bruhautomation/ESP-MQTT-JSON-Multisensor
 
 
 ### To Do List
-- Add: Sensor Name, State Topic & Set Topic as configurable parameters via the access point
+- TBC
 
 
 #### OTA Uploading
