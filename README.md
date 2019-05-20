@@ -17,10 +17,11 @@ https://github.com/bruhautomation/ESP-MQTT-JSON-Multisensor
 - **Removed LED** and associated code (Served limited purpose)
 - **ArduinoJson6** compatible code
 - **Implemented WifiManager library** to set WiFi and MQTT settings using an **access point**, removing hardcoded values
+- Update code to support **latest DHT library**
 
 
 ### To Do List
-- Update code to support latest DHT library
+- TBC
 
 
 #### OTA Uploading
