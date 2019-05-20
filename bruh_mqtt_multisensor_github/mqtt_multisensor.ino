@@ -21,7 +21,9 @@
 
   UPDATE 20 MAY 2019 - Updated reconnect() function to reset board if MQTT connection fails 5 or more times (So you can re-enter the MQTT details using the AP code configuration portal)
 
-  UPDATE 20 MAY 2019 - Added PORT as a customer parameter to the configuration portal
+  UPDATE 20 MAY 2019 - Added Port, Sensor Name, State Topic and Set Topic as custom parameters which can be set using the configuration portal
+
+  UPDATE 20 MAY 2019 - Added onDemandPortal access in case of incorrect MQTT settings. Previously went into an infinite loop trying to connect using incorrect credentials
 
   REQUIRED LIBRARIES
   ------------------
@@ -38,14 +40,12 @@
              and searching for ESP8266 and installing it.)
 */
 
-
 #include <FS.h>
 #include <ESP8266WiFi.h>
 #include <DHT.h>
 #include <PubSubClient.h>
 #include <ESP8266mDNS.h>
 #include <WiFiUdp.h>
-#include <ArduinoOTA.h>
 #include <ArduinoJson.h>
 
 #include <DNSServer.h>            //Local DNS Server used for redirecting all requests to the configuration portal
@@ -53,39 +53,26 @@
 #include <WiFiManager.h>          //https://github.com/tzapu/WiFiManager WiFi Configuration Magic
 
 
-
-/************ MQTT VARIABLES ************/
-char mqtt_server[40];
-char mqtt_user[40];
-char mqtt_password[40];
-char mqtt_port[4];
-
-/************ MQTT TOPICS ************/
-#define multisensor_state_topic "sensornodes/bedroomMultiSensor"
-#define multisensor_set_topic "sensornodes/bedroomMultiSensor/set"
-
-/************ FOR SETTINGS ************/
-#define SENSORNAME "bedroomMultiSensor"
-#define OTApassword "OTA_DEVICE_PASSWORD" // change this to whatever password you want to use when you upload OTA
-int OTAport = 8266;
-
 /************ PIN DEFINITIONS ************/
 #define PIRPIN    D5
 #define DHTPIN    D7
 #define DHTTYPE   DHT22
 #define LDRPIN    A0
 
+
 /************ SENSOR VARIABLES ************/
-int calibrationTime = 5;
+char sensor_name[50] = "new_MultisensorDevice";
 bool shouldSaveConfig = false;
 
-#define IsFahrenheit false //to use celsius change to false
+int calibrationTime = 5;
+const int BUFFER_SIZE = 300;
 
 float ldrValue;
 int LDR;
 float calcLDR;
 float diffLDR = 10;
 
+#define IsFahrenheit false //to use celsius change to false
 float diffTEMP = 0.2;
 float tempValue;
 
@@ -94,32 +81,31 @@ float humValue;
 
 #define PIR_ON_STRING "motion_detected"
 #define PIR_OFF_STRING "standby"
-
 int pirValue;
 int pirStatus;
 String motionStatus;
-
-char message_buff[100];
-const int BUFFER_SIZE = 300;
-#define MQTT_MAX_PACKET_SIZE 512
 
 WiFiClient espClient;
 PubSubClient client(espClient);
 DHT dht(DHTPIN, DHTTYPE);
 
 
-/************ SETUP ************/
-void setup() {
+/************ MQTT VARIABLES ************/
+char mqtt_server[40];
+char mqtt_user[40];
+char mqtt_password[40];
+char mqtt_port[6];
+char multisensor_state_topic[100] = "sensornodes/new_MultisensorDevice";
+char multisensor_set_topic[100] = "sensornodes/new_MultisensorDevice/set";
+#define MQTT_MAX_PACKET_SIZE 512
 
-  pinMode(PIRPIN, INPUT);
-  pinMode(DHTPIN, INPUT);
-  pinMode(LDRPIN, INPUT);
 
-  Serial.begin(115200);
-  delay(10000);
+
+
+ 
+bool readConfig() {
 
   Serial.print("Mounting file system");
-
   if (SPIFFS.begin()) {
     Serial.println("..........file system mounted successfully");
     Serial.print("Searching for existing configuration file");
@@ -140,115 +126,189 @@ void setup() {
           Serial.print("..........failed to read file with error code: ");
           Serial.println(error.c_str());
           Serial.println("Starting access point");
+          return false;
         } else {
           Serial.println("..........file read successfully");
           Serial.print("File contents: ");
           serializeJson(doc, Serial);
           Serial.println();
+
+          strcpy(sensor_name, doc["sensor_name"]);
           strcpy(mqtt_server, doc["mqtt_server"]);
           strcpy(mqtt_port, doc["mqtt_port"]);
           strcpy(mqtt_user, doc["mqtt_user"]);
           strcpy(mqtt_password, doc["mqtt_password"]);
+          strcpy(multisensor_state_topic, doc["multisensor_state_topic"]);
+          strcpy(multisensor_set_topic, doc["multisensor_set_topic"]);
         }
       } else {
         Serial.println("..........failed to open file");
         Serial.println("Starting access point");
+        return false;
 
       }
     } else {
       Serial.println("..........file not found");
       Serial.println("Starting access point");
+      return false;
     }
   } else {
     Serial.println("..........failed to mount file system");
     Serial.println("Starting access point");
+    return false;
   }
+  return true;
+}
 
+void saveConfig() {
 
+  File configFile = SPIFFS.open("/config.json", "w");
+  if (!configFile) {
+    Serial.println("..........failed to open configuration file for writing");
+  } else {
+    DynamicJsonDocument doc(1024);
+    doc["sensor_name"] = sensor_name;
+    doc["mqtt_server"] = mqtt_server;
+    doc["mqtt_port"] = mqtt_port;
+    doc["mqtt_user"] = mqtt_user;
+    doc["mqtt_password"] = mqtt_password;
+    doc["multisensor_state_topic"] = multisensor_state_topic;
+    doc["multisensor_set_topic"] = multisensor_set_topic;
+    serializeJson(doc, configFile);
+    Serial.println("..........configuration saved successfully");
+    Serial.print("New file contents: ");
+    serializeJson(doc, Serial);
+    Serial.println();
+    configFile.close();
+  }
+}
+
+void initWifiManager() {
+
+  WiFiManagerParameter custom_sensor_name("sensorname", "sensor_name", sensor_name, 100);
   WiFiManagerParameter custom_mqtt_server("server", "mqtt server", mqtt_server, 40);
-  WiFiManagerParameter custom_mqtt_port("port", "mqtt port", mqtt_port, 5);
+  WiFiManagerParameter custom_mqtt_port("port", "mqtt port", mqtt_port, 6);
   WiFiManagerParameter custom_mqtt_user("user", "mqtt user", mqtt_user, 40);
   WiFiManagerParameter custom_mqtt_password("password", "mqtt password", mqtt_password, 40);
+  WiFiManagerParameter custom_multisensor_state_topic("statetopic", "multisensor_state_topic", multisensor_state_topic, 100);
+  WiFiManagerParameter custom_multisensor_set_topic("settopic", "multisensor_set_topic", multisensor_set_topic, 100);
 
   WiFiManager wifiManager;
 
   //set config save notify callback
   wifiManager.setSaveConfigCallback(saveConfigCallback);
 
+  wifiManager.addParameter(&custom_sensor_name);
   wifiManager.addParameter(&custom_mqtt_server);
   wifiManager.addParameter(&custom_mqtt_port);
   wifiManager.addParameter(&custom_mqtt_user);
   wifiManager.addParameter(&custom_mqtt_password);
+  wifiManager.addParameter(&custom_multisensor_state_topic);
+  wifiManager.addParameter(&custom_multisensor_set_topic);
 
   wifiManager.setAPCallback(configModeCallback);
 
   wifiManager.setDebugOutput(false);
 
-  if (!wifiManager.autoConnect(SENSORNAME, "AP_PASSWORD")) {
+  if (!wifiManager.autoConnect(sensor_name, "SSEJO_12412!")) {
     Serial.println("Failed to: connect to known access point / Start AP mode - Resetting board");
     software_Reset();
   }
 
+  strcpy(sensor_name, custom_sensor_name.getValue());
   strcpy(mqtt_server, custom_mqtt_server.getValue());
   strcpy(mqtt_port, custom_mqtt_port.getValue());
   strcpy(mqtt_user, custom_mqtt_user.getValue());
   strcpy(mqtt_password, custom_mqtt_password.getValue());
+  strcpy(multisensor_state_topic, custom_multisensor_state_topic.getValue());
+  strcpy(multisensor_set_topic, custom_multisensor_set_topic.getValue());
 
-  if (shouldSaveConfig) {
-    File configFile = SPIFFS.open("/config.json", "w");
-    if (!configFile) {
-      Serial.println("..........failed to open configuration file for writing");
-    } else {
-      DynamicJsonDocument doc(1024);
-      doc["mqtt_server"] = mqtt_server;
-      doc["mqtt_user"] = mqtt_user;
-      doc["mqtt_password"] = mqtt_password;
-      doc["mqtt_port"] = mqtt_port;
-      serializeJson(doc, configFile);
-      Serial.println("..........configuration saved successfully");
-      configFile.close();
-    }
+}
+
+void initMQTT() {
+  client.setServer(mqtt_server, atoi(mqtt_port));
+  client.setCallback(mqttCallback);
+}
+
+
+void onDemandPortal() { //For if you get the MQTT settings wrong
+
+  WiFiManagerParameter custom_sensor_name("sensorname", "sensor_name", sensor_name, 100);
+  WiFiManagerParameter custom_mqtt_server("server", "mqtt server", mqtt_server, 40);
+  WiFiManagerParameter custom_mqtt_port("port", "mqtt port", mqtt_port, 6);
+  WiFiManagerParameter custom_mqtt_user("user", "mqtt user", mqtt_user, 40);
+  WiFiManagerParameter custom_mqtt_password("password", "mqtt password", mqtt_password, 40);
+  WiFiManagerParameter custom_multisensor_state_topic("statetopic", "multisensor_state_topic", multisensor_state_topic, 100);
+  WiFiManagerParameter custom_multisensor_set_topic("settopic", "multisensor_set_topic", multisensor_set_topic, 100);
+
+  WiFiManager wifiManager;
+
+  //set config save notify callback
+  wifiManager.setSaveConfigCallback(saveConfigCallback);
+
+  wifiManager.addParameter(&custom_sensor_name);
+  wifiManager.addParameter(&custom_mqtt_server);
+  wifiManager.addParameter(&custom_mqtt_port);
+  wifiManager.addParameter(&custom_mqtt_user);
+  wifiManager.addParameter(&custom_mqtt_password);
+  wifiManager.addParameter(&custom_multisensor_state_topic);
+  wifiManager.addParameter(&custom_multisensor_set_topic);
+
+  wifiManager.setAPCallback(configModeCallback);
+
+  wifiManager.setDebugOutput(false);
+
+  if (!wifiManager.startConfigPortal(sensor_name, "SSEJO_12412!")) {
+    Serial.println("failed to connect and hit timeout");
+    delay(1000);
+    //reset and try again, or maybe put it to deep sleep
+    software_Reset();
   }
 
-  int mqtt_port_AsINT = atoi(mqtt_port);
-  Serial.print("Port: ");
-  Serial.println(mqtt_port_AsINT);
-  
-  client.setServer(mqtt_server, mqtt_port_AsINT);
-  client.setCallback(mqttCallback);
+  strcpy(sensor_name, custom_sensor_name.getValue());
+  strcpy(mqtt_server, custom_mqtt_server.getValue());
+  strcpy(mqtt_port, custom_mqtt_port.getValue());
+  strcpy(mqtt_user, custom_mqtt_user.getValue());
+  strcpy(mqtt_password, custom_mqtt_password.getValue());
+  strcpy(multisensor_state_topic, custom_multisensor_state_topic.getValue());
+  strcpy(multisensor_set_topic, custom_multisensor_set_topic.getValue());
 
-  Serial.print("Initialising OTA server settings");
-  ArduinoOTA.setPort(OTAport);
-  ArduinoOTA.setHostname(SENSORNAME);
-  ArduinoOTA.setPassword((const char *)OTApassword);
+  if (shouldSaveConfig) {
+    saveConfig();
+  }
 
-  ArduinoOTA.onStart([]() {
-    Serial.println("OTA server starting");
-  });
-  ArduinoOTA.onEnd([]() {
-    Serial.println("OTA server ended");
-  });
-  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-    Serial.printf("Upload Progress: %u%%\r", (progress / (total / 100)));
-  });
-  ArduinoOTA.onError([](ota_error_t error) {
-    Serial.printf("Error[%u]: ", error);
-    if (error == OTA_AUTH_ERROR) Serial.println("OTA Auth Failed");
-    else if (error == OTA_BEGIN_ERROR) Serial.println("OTA Begin Failed");
-    else if (error == OTA_CONNECT_ERROR) Serial.println("OTA Connect Failed");
-    else if (error == OTA_RECEIVE_ERROR) Serial.println("OTA Receive Failed");
-    else if (error == OTA_END_ERROR) Serial.println("OTA End Failed");
-  });
+}
 
-  ArduinoOTA.begin();
-  Serial.println("..........initialised successfully");
+
+/************ SETUP ************/
+void setup() {
+
+  pinMode(PIRPIN, INPUT);
+  pinMode(DHTPIN, INPUT);
+  pinMode(LDRPIN, INPUT);
+
+  Serial.begin(115200);
+
+  delay(5000);
+
+  bool existingConfig = readConfig();
+
+  initWifiManager();
+
+  if (shouldSaveConfig) {
+    saveConfig();
+
+  }
+
+  initMQTT();
 
   Serial.println("Set-up Finished.");
 
   Serial.println();
   Serial.println();
   Serial.println("#########################################");
-  Serial.println("Sensor Name: " + String(SENSORNAME) + "..........Ready");
+  Serial.print("Sensor Name: ");
+  Serial.println(sensor_name);
   Serial.print("Device local ip: ");
   Serial.println(WiFi.localIP());
   Serial.println("#########################################");
@@ -268,7 +328,7 @@ void saveConfigCallback () {
 
 
 /************ WIFI MANAGER CALLBACK ************/
-void configModeCallback (WiFiManager *myWiFiManager) {
+void configModeCallback (WiFiManager * myWiFiManager) {
   Serial.println("Device has entered configuration mode..........connect to the AP point to complete set-up");
   Serial.println(WiFi.softAPIP());
   Serial.println(myWiFiManager->getConfigPortalSSID());
@@ -276,7 +336,7 @@ void configModeCallback (WiFiManager *myWiFiManager) {
 
 
 /************ MQTT NEW MESSAGE CALLBACK ************/
-void mqttCallback(char* topic, byte* payload, unsigned int length) {
+void mqttCallback(char* topic, byte * payload, unsigned int length) {
   Serial.print("Message arrived [");
   Serial.print(topic);
   Serial.println("] ");
@@ -291,7 +351,6 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   if (!processJson(message)) {
     return;
   }
-
   sendState();
 }
 
@@ -308,6 +367,7 @@ bool processJson(char* message) {
 
   return true;
 }
+
 
 
 /************ SEND CURRENT STATES ************/
@@ -333,28 +393,41 @@ void sendState() {
 /************ RECONNECT ************/
 void reconnect() {
 
-  int attempts = 0;
+  int attempts = 1;
 
   while (!client.connected()) {
     Serial.print("Attempting to connect to MQTT server");
-    if (client.connect(SENSORNAME, mqtt_user, mqtt_password)) {
+
+    if (client.connect(sensor_name, mqtt_user, mqtt_password)) {
       Serial.println("..........connected successfully");
       client.subscribe(multisensor_set_topic);
       sendState();
     } else {
-      Serial.print("connection failed with error code: ");
+      Serial.print("..........connection failed with error code: ");
       Serial.println(client.state());
       Serial.print("Retrying in 5 seconds");
-      int reconDelay = 0;
-      while (reconDelay < 5) {
+
+      int reconDelay = 1;
+      while (reconDelay < 6) {
         Serial.print("..");
         reconDelay++;
       }
-      Serial.println("..........retrying now");
-      attempts++;
 
-      if (attempts > 4) {
-        software_Reset();
+      Serial.println("..........retrying now");
+
+      attempts++;
+    }
+    if (attempts > 4) {
+      Serial.println("Max attempts reached");
+      bool configFileRM = SPIFFS.remove("/config.json");
+      if (!configFileRM) {
+        Serial.println("Failed to remove configuration file, this may not work. You may have to reflash the board");
+      } else {
+        Serial.println("Successfully removed incorrect configuration file");
+        onDemandPortal();
+        initMQTT();
+        attempts = 1;
+        delay(1000);
       }
 
     }
@@ -370,8 +443,6 @@ bool checkBoundSensor(float newValue, float prevValue, float maxDiff) {
 
 /************ MAIN LOOP ************/
 void loop() {
-
-  ArduinoOTA.handle();
 
   if (!client.connected()) {
     software_Reset();
@@ -414,7 +485,6 @@ void loop() {
     sendState();
   }
 
-
   int newLDR = analogRead(LDRPIN);
 
   if (checkBoundSensor(newLDR, LDR, diffLDR)) {
@@ -428,7 +498,8 @@ void loop() {
 /************ RESET ESP ************/
 void software_Reset() // Restarts program from beginning but does not reset the peripherals and registers
 {
-  Serial.println("..........resetting");
+  Serial.println("..........resetting board now\n\n\n");
   delay(2000);
   ESP.reset();
+  delay(2000);
 }
